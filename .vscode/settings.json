@@ -1,0 +1,106 @@
+{
+    "[dart]": {
+        "editor.defaultFormatter": "Dart-Code.dart-code",
+        "editor.formatOnSave": true
+    },
+    "[java]": {
+        "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code",
+        "editor.formatOnSave": true
+    },
+    "[json]": {
+        "editor.codeActionsOnSave": {
+            "source.sort.json": "explicit"
+        },
+        "editor.defaultFormatter": "vscode.json-language-features",
+        "editor.formatOnSave": true
+    },
+    "[jsonc]": {
+        "editor.codeActionsOnSave": {
+            "source.sort.json": "explicit"
+        },
+        "editor.defaultFormatter": "vscode.json-language-features",
+        "editor.formatOnSave": true
+    },
+    "[xml]": {
+        "editor.defaultFormatter": "redhat.vscode-xml",
+        "editor.formatOnSave": true
+    },
+    "coverage-gutters.coverageBaseDir": "**",
+    "coverage-gutters.coverageFileNames": [
+        "jacocoTestReport.xml"
+    ],
+    "coverage-gutters.watchOnActivate": true,
+    "cSpell.words": [
+        "allprojects",
+        "armeria",
+        "Atclause",
+        "clientside",
+        "Clojars",
+        "Cnxns",
+        "colocates",
+        "commitlint",
+        "cupertino",
+        "diffplug",
+        "Dzookeeper",
+        "errorprone",
+        "eventbus",
+        "fasterxml",
+        "Finalizer",
+        "fixnum",
+        "foojay",
+        "getenv",
+        "gproto",
+        "gradlew",
+        "grpcweb",
+        "Hashtable",
+        "inprocess",
+        "invokable",
+        "jacoco",
+        "javax",
+        "jdneo",
+        "lefthook",
+        "linecorp",
+        "logback",
+        "ltgt",
+        "microbatch",
+        "millis",
+        "mocktail",
+        "Multiplatform",
+        "overengineering",
+        "pbgrpc",
+        "Pkgs",
+        "pkill",
+        "Podfile",
+        "protoc",
+        "PSTATE",
+        "pubspec",
+        "reassignable",
+        "riverpod",
+        "shengchen",
+        "subindexing",
+        "undrained",
+        "Upserts",
+        "xcconfig"
+    ],
+    "java.checkstyle.configuration": "${workspaceFolder}/backend/config/checkstyle/checkstyle.xml",
+    "java.checkstyle.version": "13.4.2",
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.format.settings.google.mode": "jar-file",
+    "java.format.settings.google.style": "google",
+    "java.format.settings.google.version": "1.35.0",
+    "java.import.exclusions": [
+        "**/frontend/android/**"
+    ],
+    "java.import.gradle.enabled": true,
+    "java.import.gradle.wrapper.enabled": true,
+    "java.project.resourceFilters": [
+        ".dart_tool",
+        ".git",
+        ".vscode",
+        "frontend",
+        "gradle",
+        "scripts",
+        ".*/build/.*"
+    ]
+}

@@ -1,0 +1,183 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "backend",
+      "request": "launch",
+      "mainClass": "social.example.Main",
+      "args": [
+        "8080"
+      ],
+      "vmArgs": "-Dzookeeper.maxCnxns=200 --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "presentation": {
+        "group": "1_run",
+        "order": 1
+      }
+    },
+    {
+      "type": "dart",
+      "name": "frontend",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "program": "lib/main.dart",
+      "presentation": {
+        "group": "1_run",
+        "order": 2
+      }
+    },
+    {
+      "type": "dart",
+      "name": "frontend (web)",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "presentation": {
+        "group": "1_run",
+        "order": 3
+      }
+    },
+    {
+      "type": "node",
+      "name": "Backend: test",
+      "request": "launch",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": [
+        "-lc",
+        "./gradlew test --console=plain"
+      ],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "2_tests",
+        "order": 1
+      }
+    },
+    {
+      "type": "dart",
+      "name": "Frontend: tests",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "program": "test/",
+      "presentation": {
+        "group": "2_tests",
+        "order": 2
+      }
+    },
+    {
+      "type": "node",
+      "name": "Patrol E2E (web)",
+      "request": "launch",
+      "runtimeExecutable": "/bin/bash",
+      "program": "${workspaceFolder}/scripts/patrol_e2e.sh",
+      "args": [
+        "web"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "3_e2e",
+        "order": 1
+      }
+    },
+    {
+      "type": "node",
+      "name": "Patrol E2E (web headless)",
+      "request": "launch",
+      "runtimeExecutable": "/bin/bash",
+      "program": "${workspaceFolder}/scripts/patrol_e2e.sh",
+      "args": [
+        "web-headless"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "3_e2e",
+        "order": 2
+      }
+    },
+    {
+      "type": "node",
+      "name": "Pre-commit (staged)",
+      "request": "launch",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": [
+        "-lc",
+        "lefthook run pre-commit"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "4_hooks",
+        "order": 1
+      }
+    },
+    {
+      "type": "node",
+      "name": "Pre-commit (all)",
+      "request": "launch",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": [
+        "-lc",
+        "lefthook run pre-commit --force"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "4_hooks",
+        "order": 2
+      }
+    },
+    {
+      "type": "node",
+      "name": "Pre-push (all)",
+      "request": "launch",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": [
+        "-lc",
+        "lefthook run pre-push --force"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "4_hooks",
+        "order": 3
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "backend + frontend (web)",
+      "configurations": [
+        "backend",
+        "frontend (web)"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "group": "1_run",
+        "order": 4
+      }
+    },
+    {
+      "name": "Unit tests (backend + frontend)",
+      "configurations": [
+        "Backend: test",
+        "Frontend: tests"
+      ],
+      "stopAll": true,
+      "presentation": {
+        "group": "2_tests",
+        "order": 3
+      }
+    }
+  ]
+}

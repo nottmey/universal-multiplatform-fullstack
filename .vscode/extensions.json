@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "dart-code.dart-code",
+    "dart-code.flutter",
+    "josevseb.google-java-format-for-vs-code",
+    "redhat.vscode-xml",
+    "ryanluker.vscode-coverage-gutters",
+    "streetsidesoftware.code-spell-checker",
+    "vscjava.vscode-java-pack"
+  ]
+}

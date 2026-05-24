@@ -1,0 +1,140 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN" "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  Rules that do not overlap Spotless (google-java-format, import reorder, formatJavadoc).
+  Formatting and import hygiene are enforced only by ./gradlew spotlessCheck (from backend/).
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8" />
+    <property name="severity" value="warning" />
+
+    <module name="UniqueProperties" />
+
+    <module name="TreeWalker">
+        <module name="MissingDeprecated" />
+        <module name="MissingOverride" />
+
+        <!-- Block / control flow -->
+        <module name="DefaultComesLast" />
+        <module name="EmptyBlock" />
+        <module name="EmptyStatement" />
+        <module name="FallThrough" />
+        <module name="MissingSwitchDefault" />
+        <module name="ModifiedControlVariable" />
+        <module name="MultipleVariableDeclarations" />
+        <module name="NestedForDepth">
+            <property name="max" value="2" />
+        </module>
+        <module name="NestedIfDepth">
+            <property name="max" value="4" />
+        </module>
+        <module name="ParameterAssignment" />
+        <module name="SimplifyBooleanExpression" />
+        <module name="SimplifyBooleanReturn" />
+        <module name="StringLiteralEquality" />
+        <module name="WhenShouldBeUsed" />
+
+        <!-- Class design -->
+        <module name="HideUtilityClassConstructor" />
+        <module name="InterfaceIsType" />
+        <module name="MutableException" />
+        <module name="OneTopLevelClass" />
+        <module name="OuterTypeFilename" />
+
+        <!-- Coding -->
+        <module name="AvoidEscapedUnicodeCharacters">
+            <property name="allowEscapesForControlCharacters" value="true" />
+            <property name="allowByTailComment" value="true" />
+            <property name="allowIfAllCharactersEscaped" value="true" />
+        </module>
+        <module name="CovariantEquals" />
+        <module name="DeclarationOrder" />
+        <module name="EqualsAvoidNull" />
+        <module name="EqualsHashCode" />
+        <module name="ExplicitInitialization" />
+        <module name="IllegalIdentifierName" />
+        <module name="IllegalInstantiation">
+            <property name="classes" value="java.lang.Boolean" />
+        </module>
+        <module name="IllegalThrows" />
+        <module name="IllegalType">
+            <property name="illegalClassNames"
+                value="java.util.GregorianCalendar, java.util.Hashtable,
+                java.util.Vector" />
+            <property name="ignoredMethodNames" value="getInstance, newInstance" />
+        </module>
+        <module name="InnerAssignment" />
+        <module name="MagicNumber">
+            <property name="ignoreNumbers"
+                value="-1,0,1,2,3,4,5,6,7,8,9,10,
+                12,15,16,24,31,32,60,63,64,100,127,128,200,255,256,300,400,
+                512,999,1000" />
+            <property name="ignoreAnnotation" value="true" />
+            <property name="ignoreFieldDeclaration" value="true" />
+            <property name="ignoreHashCodeMethod" value="true" />
+        </module>
+        <module name="NoClone" />
+        <module name="NoFinalizer" />
+        <module name="PackageDeclaration" />
+        <module name="SuperClone" />
+        <module name="SuperFinalize" />
+        <module name="UpperEll" />
+
+        <!-- Illegal legacy / JDK internals (security and portability). -->
+        <module name="IllegalImport">
+            <property name="illegalPkgs" value="sun, jdk.internal" />
+            <property name="illegalClasses" value="junit.framework.TestCase" />
+        </module>
+
+        <!-- Naming -->
+        <module name="CatchParameterName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$" />
+        </module>
+        <module name="ClassTypeParameterName">
+            <property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$)" />
+        </module>
+        <module name="ConstantName">
+            <property name="format" value="^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$|^log$" />
+        </module>
+        <module name="InterfaceTypeParameterName">
+            <property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$)" />
+        </module>
+        <module name="LambdaParameterName" />
+        <module name="LocalVariableName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$" />
+        </module>
+        <module name="MemberName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$" />
+        </module>
+        <module name="MethodName">
+            <!-- Allow underscore for descriptive test-style names (given_when_then). -->
+            <property name="format" value="^[a-z][a-zA-Z0-9_]*$" />
+        </module>
+        <module name="MethodTypeParameterName">
+            <property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$)" />
+        </module>
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$" />
+        </module>
+        <module name="ParameterName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$" />
+        </module>
+        <module name="PatternVariableName" />
+        <module name="RecordComponentName" />
+        <module name="RecordTypeParameterName" />
+        <module name="StaticVariableName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$" />
+        </module>
+        <module name="TypeName" />
+
+        <!-- Spotless formats Javadoc; keep only semantic / content checks. -->
+        <module name="InvalidJavadocPosition" />
+        <module name="NonEmptyAtclauseDescription" />
+
+        <!-- Optional polish (hidden field shadowing). -->
+        <module name="HiddenField">
+            <property name="ignoreConstructorParameter" value="true" />
+            <property name="ignoreSetter" value="true" />
+        </module>
+    </module>
+</module>

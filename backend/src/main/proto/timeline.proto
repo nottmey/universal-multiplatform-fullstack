@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package social.example.features.timeline.grpc;
+
+option java_package = "social.example.features.timeline.grpc";
+option java_outer_classname = "TimelineApiProto";
+option java_multiple_files = true;
+
+message SubscribeTimelineRequest {}
+
+message SubscribeTimelineResponse {
+  repeated string post_ids = 1;
+}

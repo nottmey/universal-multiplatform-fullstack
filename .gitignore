@@ -1,0 +1,5 @@
+# local Rama cluster (see scripts/rama_local.sh)
+cluster/
+
+# local lefthook overrides
+lefthook-local.yml

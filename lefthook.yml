@@ -1,0 +1,127 @@
+# Git hooks via lefthook — https://github.com/evilmartians/lefthook
+# Warning: not optimized for partial commits — checks can fail on unstaged files and pre-commit may stage unstaged files.
+# Install this via: ./setup.sh
+# Skip this (if needed) via:
+# - LEFTHOOK=0 git commit
+# - LEFTHOOK=0 git pull
+# - LEFTHOOK=0 git checkout
+
+min_version: 2.1.0
+
+post-merge:
+  commands:
+    setup:
+      files: git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD # needed to identify diff
+      glob:
+        - ".tool-versions"
+        - "lefthook.yml"
+        - "setup.sh"
+      run: ./setup.sh
+
+post-checkout:
+  commands:
+    setup:
+      # if {3} is 0, it's a file checkout (-> skip), {1} is previous HEAD, {2} is new HEAD
+      run: |
+        test "{3}" -eq 0 && exit 0
+        if git diff --name-only {1} {2} | grep -qE '^(\.tool-versions|lefthook\.yml|setup\.sh)$'; then
+          ./setup.sh
+        fi
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --yes @commitlint/cli@latest --edit {1}
+
+pre-commit:
+  parallel: true
+  commands:
+    lefthook-validate:
+      glob:
+        - "lefthook.yml"
+      run: lefthook validate
+
+    merge-conflict-markers:
+      run: |
+        if git diff --cached -S'<<<<<<<' --name-only | grep -v '^lefthook\.yml$' | grep -q .; then
+          echo "Staged files contain merge conflict markers (<<<<<<<)" >&2
+          exit 1
+        fi
+
+    gitleaks:
+      run: gitleaks protect --staged --no-banner
+
+    generate-dart-protos:
+      glob:
+        - "backend/src/main/proto/**/*.proto"
+      run: |
+        ./scripts/generate_dart_protos.sh
+        git add frontend/lib/proto/
+
+    flutter-pub-get-precache-ios-pod-install:
+      glob:
+        - "frontend/pubspec.yaml"
+        - "frontend/pubspec.lock"
+      run: |
+        (cd frontend && flutter pub get && flutter precache --ios && cd ios && pod install --repo-update)
+        git add frontend/pubspec.lock frontend/ios/Podfile.lock
+
+    dart-build-runner:
+      glob:
+        - "frontend/**/*.dart"
+        - "frontend/pubspec.lock"
+      exclude:
+        - "frontend/lib/proto/**"
+      run: |
+        (cd frontend && dart run build_runner build)
+        find frontend \( -name '*.mocks.dart' -o -name '*.g.dart' \) -exec git add {} +
+
+    dart-format:
+      glob:
+        - "frontend/**/*.dart"
+      run: dart format {staged_files}
+      stage_fixed: true
+
+    backend:
+      glob:
+        - "backend/**"
+      run: (cd backend && ./gradlew spotlessApply classes --quiet)
+      stage_fixed: true
+
+pre-push:
+  parallel: true
+  commands:
+    dart-analyze:
+      glob:
+        - "frontend/analysis_options.yaml"
+        - "frontend/**/*.dart"
+        - "frontend/pubspec.lock"
+      run: (cd frontend && dart analyze --fatal-infos)
+
+    flutter-test:
+      glob:
+        - "frontend/lib/**/*.dart"
+        - "frontend/test/**/*.dart"
+        - "frontend/pubspec.lock"
+      run: (cd frontend && flutter test)
+
+    backend-check:
+      glob:
+        - "backend/build.gradle.kts"
+        - "backend/config/checkstyle/**"
+        - "backend/gradle/libs.versions.toml"
+        - "backend/settings.gradle.kts"
+        - "backend/src/**/*.java"
+      run: (cd backend && ./gradlew check --quiet)
+
+    patrol-e2e:
+      glob:
+        - "backend/build.gradle.kts"
+        - "backend/gradle/libs.versions.toml"
+        - "backend/settings.gradle.kts"
+        - "backend/src/main/java/**"
+        - "frontend/lib/**/*.dart"
+        - "frontend/patrol_test/**"
+        - "frontend/pubspec.lock"
+        - "scripts/patrol_e2e.sh"
+      run: ./scripts/patrol_e2e.sh web-headless

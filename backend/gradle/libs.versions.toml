@@ -1,0 +1,46 @@
+[versions]
+googleJavaFormat = "1.35.0"
+rama = "1.6.0"
+rama-helpers = "0.10.0"
+junit = "5.14.4"
+junit-platform = "1.14.4"
+log4j = "2.26.0"
+armeria = "1.39.0"
+protoc = "4.35.0"
+protobuf-plugin = "0.10.0"
+grpc = "1.81.0"
+jackson = "2.21.3"
+javax-annotation-api = "1.3.2"
+spotless = "8.5.1"
+errorprone-gradle = "5.1.0"
+error-prone = "2.49.0"
+checkstyle = "13.4.2"
+lombok = "1.18.46"
+
+[libraries]
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "error-prone" }
+rama = { module = "com.rpl:rama", version.ref = "rama" }
+rama-helpers = { module = "com.rpl:rama-helpers", version.ref = "rama-helpers" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
+log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
+log4j-slf4j2-impl = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
+armeria-bom = { module = "com.linecorp.armeria:armeria-bom", version.ref = "armeria" }
+armeria = { module = "com.linecorp.armeria:armeria" }
+armeria-grpc = { module = "com.linecorp.armeria:armeria-grpc" }
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protoc" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
+grpc-services = { module = "io.grpc:grpc-services", version.ref = "grpc" }
+javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
+jackson-module-scala213 = { module = "com.fasterxml.jackson.module:jackson-module-scala_2.13", version.ref = "jackson" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+
+[plugins]
+protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-gradle" }
+
+[bundles]
+logging = ["log4j-api", "log4j-core", "log4j-slf4j2-impl"]

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout
+        pattern="%d{HH:mm:ss.SSS} %level{length=1} [%-7replace{%replace{%t}{clientside-cluster-manager-executor-pool-}{r-}}{armeria-common-worker-nio-}{n-}] %logger{1} %msg%n" />
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Logger name="social.example" level="info" additivity="false">
+      <AppenderRef ref="Console" />
+    </Logger>
+    <Logger name="social.example.logging.GrpcLogging" level="debug" additivity="false">
+      <AppenderRef ref="Console" />
+    </Logger>
+    <Logger name="social.example.logging.HttpLogging" level="debug" additivity="false">
+      <AppenderRef ref="Console" />
+    </Logger>
+    <Root level="warn">
+      <AppenderRef ref="Console" />
+    </Root>
+  </Loggers>
+</Configuration>
