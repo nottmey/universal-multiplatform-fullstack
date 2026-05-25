@@ -47,10 +47,10 @@ flowchart LR
     Depots -->|reactive compute| PStates
   end
 
-  flutter -->|request<br/>open (EventBus)<br/>subscribe<br/>unsubscribe| armeria
+  flutter -->|request<br/>open EventBus<br/>subscribe<br/>unsubscribe| armeria
   armeria -->|respond<br/>stream| flutter
-  armeria -->|append (Depots)<br/>read (PStates)<br/>watch (PStates)| rama
-  rama -->|ack (Feature Services)<br/>notify (EventBus Service)| armeria
+  armeria -->|append Depots<br/>read PStates<br/>watch PStates| rama
+  rama -->|ack Feature Services<br/>notify EventBus Service| armeria
 ```
 
 ### Integrated Distributed Compute & Storage: Rama
