@@ -7,8 +7,8 @@ final authenticationUserProvider = StreamProvider<User?>((ref) {
 });
 
 final authenticationIdTokenProvider = FutureProvider<String?>((ref) async {
-  final user = ref.watch(authenticationUserProvider).value;
-  if (user == null) {
+  final user = await ref.watch(authenticationUserProvider.future);
+  if (user == null || user.isAnonymous) {
     return null;
   }
   return user.getIdToken(true);

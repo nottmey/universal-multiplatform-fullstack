@@ -35,13 +35,16 @@ final eventSubscriptionsProvider = StreamProvider.autoDispose
         context: connectionContext,
         subscription: subscriptionPayload,
       );
-      client.subscribe(subscribeRpcRequest).catchError((e, s) async {
-        await subscription.cancel();
-        if (!controller.isClosed) {
-          controller.addError(e, s);
-          await controller.close();
-        }
-        return Empty();
+      // TODO: await the opening of the event bus before subscribing, maybe Future<Steam>?
+      scheduleMicrotask(() {
+        client.subscribe(subscribeRpcRequest).catchError((e, s) async {
+          await subscription.cancel();
+          if (!controller.isClosed) {
+            controller.addError(e, s);
+            await controller.close();
+          }
+          return Empty();
+        });
       });
       ref.onDispose(() {
         unawaited(

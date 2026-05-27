@@ -20,12 +20,7 @@ class AuthenticationRepository {
   }) async {
     final currentUser = _firebaseAuth.currentUser;
     if (currentUser != null && currentUser.isAnonymous) {
-      final credential = EmailAuthProvider.credential(
-        email: email,
-        password: password,
-      );
-      await currentUser.linkWithCredential(credential);
-      return;
+      await _firebaseAuth.signOut();
     }
     await _firebaseAuth.createUserWithEmailAndPassword(
       email: email,
@@ -36,8 +31,12 @@ class AuthenticationRepository {
   Future<void> signInWithEmailAndPassword({
     required String email,
     required String password,
-  }) {
-    return _firebaseAuth.signInWithEmailAndPassword(
+  }) async {
+    final currentUser = _firebaseAuth.currentUser;
+    if (currentUser != null && currentUser.isAnonymous) {
+      await _firebaseAuth.signOut();
+    }
+    await _firebaseAuth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );

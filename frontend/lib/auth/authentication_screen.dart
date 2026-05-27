@@ -52,6 +52,8 @@ class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
       }
     } on FirebaseAuthException catch (e) {
       setState(() => _errorMessage = e.message ?? 'Authentication failed.');
+    } catch (e) {
+      setState(() => _errorMessage = 'Authentication failed.');
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
