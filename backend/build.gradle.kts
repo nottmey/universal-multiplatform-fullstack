@@ -46,6 +46,8 @@ val ramaNettyVersion =
         .version
 
 dependencies {
+    val nettyBom = enforcedPlatform("io.netty:netty-bom:$ramaNettyVersion")
+
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
     testCompileOnly(libs.lombok)
@@ -54,18 +56,16 @@ dependencies {
     testFixturesAnnotationProcessor(libs.lombok)
 
     errorprone(libs.errorprone.core)
+    implementation(nettyBom)
+    testImplementation(nettyBom)
+    testFixturesImplementation(nettyBom)
     implementation(libs.protobuf.java)
     implementation(libs.javax.annotation.api)
     implementation(libs.grpc.stub)
     implementation(libs.grpc.protobuf)
     implementation(libs.log4j.api)
 
-    // force netty version to match rama, armeria and grpc need to match
-    implementation(enforcedPlatform("io.netty:netty-bom:$ramaNettyVersion"))
-    implementation(libs.rama) {
-        // exclude netty-all to avoid importing both netty-all and netty-* modules
-        exclude(group = "io.netty", module = "netty-all")
-    }
+    implementation(libs.rama)
     implementation(libs.rama.helpers)
     implementation(libs.jackson.module.scala213)
 
@@ -112,6 +112,7 @@ protobuf {
 configurations.configureEach {
     exclude(group = "ch.qos.logback", module = "logback-classic")
     exclude(group = "ch.qos.logback", module = "logback-core")
+    exclude(group = "io.netty", module = "netty-all")
 }
 
 tasks.withType<Test>().configureEach {
