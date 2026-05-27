@@ -12,6 +12,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.val;
+import social.example.GrpcTestSupport;
+import social.example.auth.FirebaseAuthenticationInterceptor;
+import social.example.auth.verifier.AcceptingIdTokenVerifier;
 import social.example.eventbus.grpc.ConnectionContext;
 import social.example.eventbus.grpc.Event;
 import social.example.eventbus.grpc.EventBusRequest;
@@ -34,6 +37,7 @@ public class InProcessEventBus implements AutoCloseable {
         InProcessServerBuilder.forName(serverName)
             .directExecutor()
             .addService(EventBusService.fromSubscriptions(subscriptions))
+            .intercept(new FirebaseAuthenticationInterceptor(new AcceptingIdTokenVerifier()))
             .build()
             .start();
     channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
@@ -87,11 +91,11 @@ public class InProcessEventBus implements AutoCloseable {
   }
 
   public EventBusServiceGrpc.EventBusServiceStub asyncStub() {
-    return EventBusServiceGrpc.newStub(channel);
+    return GrpcTestSupport.withTestUserId(EventBusServiceGrpc.newStub(channel));
   }
 
   public EventBusServiceGrpc.EventBusServiceBlockingStub blockingStub() {
-    return EventBusServiceGrpc.newBlockingStub(channel);
+    return GrpcTestSupport.withTestUserId(EventBusServiceGrpc.newBlockingStub(channel));
   }
 
   @Override

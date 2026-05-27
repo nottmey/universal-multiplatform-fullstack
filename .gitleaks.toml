@@ -3,3 +3,11 @@
 
 [extend]
 useDefault = true
+
+# FlutterFire / Firebase client config: public API keys restricted by Firebase rules.
+[allowlist]
+paths = [
+  '''frontend/lib/firebase/firebase_options\.dart''',
+  '''frontend/android/app/google-services\.json''',
+  '''frontend/ios/Runner/GoogleService-Info\.plist''',
+]

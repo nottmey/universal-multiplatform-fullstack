@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:frontend/auth/authentication_gate.dart';
 import 'package:frontend/features/timeline/timeline_screen.dart';
 
 class SocialExampleApp extends StatelessWidget {
@@ -15,7 +16,7 @@ class SocialExampleApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
           useMaterial3: true,
         ),
-        home: const TimelineScreen(),
+        home: const AuthenticationGate(child: TimelineScreen()),
       ),
     );
   }

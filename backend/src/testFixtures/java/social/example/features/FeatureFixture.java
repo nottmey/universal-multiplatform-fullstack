@@ -20,6 +20,8 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import social.example.GrpcTestSupport;
 import social.example.Main;
+import social.example.auth.FirebaseAuthenticationInterceptor;
+import social.example.auth.verifier.AcceptingIdTokenVerifier;
 import social.example.eventbus.grpc.ConnectionContext;
 import social.example.eventbus.grpc.Event;
 import social.example.eventbus.grpc.EventBusRequest;
@@ -46,7 +48,7 @@ public class FeatureFixture implements BeforeEachCallback, AfterEachCallback {
   }
 
   public <S> S stub(final Function<ManagedChannel, S> stubFactory) {
-    return stubFactory.apply(channel);
+    return GrpcTestSupport.withTestUserId(stubFactory.apply(channel));
   }
 
   public InProcessCluster cluster() {
@@ -112,13 +114,17 @@ public class FeatureFixture implements BeforeEachCallback, AfterEachCallback {
     for (val bindable : Main.services(installedFeatures)) {
       serverBuilder.addService(bindable);
     }
-    server = serverBuilder.build();
+    server =
+        serverBuilder
+            .intercept(new FirebaseAuthenticationInterceptor(new AcceptingIdTokenVerifier()))
+            .build();
     channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
     server.start();
 
     context = GrpcTestSupport.context("test", 0);
-    eventBusAsyncStub = EventBusServiceGrpc.newStub(channel);
-    eventBusBlockingStub = EventBusServiceGrpc.newBlockingStub(channel);
+    eventBusAsyncStub = GrpcTestSupport.withTestUserId(EventBusServiceGrpc.newStub(channel));
+    eventBusBlockingStub =
+        GrpcTestSupport.withTestUserId(EventBusServiceGrpc.newBlockingStub(channel));
     eventBusEvents = new CopyOnWriteArrayList<>();
     eventBusStreamErrors = new CopyOnWriteArrayList<>();
 

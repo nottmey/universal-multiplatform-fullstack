@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.armeria)
     implementation(libs.armeria.grpc)
     implementation(libs.grpc.services)
+    implementation(libs.firebase.admin)
     runtimeOnly(libs.bundles.logging)
 
     testFixturesImplementation(libs.grpc.stub)
@@ -80,6 +81,8 @@ dependencies {
     testFixturesImplementation(libs.rama)
     testFixturesImplementation(libs.junit.jupiter)
     testFixturesImplementation("io.grpc:grpc-inprocess:${libs.versions.grpc.get()}")
+    testFixturesImplementation("org.mockito:mockito-core:5.14.2")
+    testFixturesImplementation(libs.firebase.admin)
     testFixturesImplementation(sourceSets.main.get().output)
     testImplementation(testFixtures(project(":")))
     testImplementation(libs.junit.jupiter)
@@ -114,6 +117,8 @@ configurations.configureEach {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs(backendJvmArgs)
+    // see https://firebase.google.com/docs/emulator-suite/connect_auth#admin_sdks
+    environment("FIREBASE_AUTH_EMULATOR_HOST", "127.0.0.1:9099")
 }
 
 tasks.jacocoTestReport {
@@ -168,9 +173,10 @@ spotless {
 
 tasks.register<JavaExec>("runBackend") {
     group = "application"
-    description =
-        "Run Armeria gRPC + gRPC-Web server (embedded Rama cluster) with reflection and permissive CORS."
-    classpath = sourceSets["main"].runtimeClasspath
+    description = "Runs local backend, requires auth emulator to be running" 
     mainClass.set("social.example.Main")
+    classpath = sourceSets["main"].runtimeClasspath
+    args("8080")
     jvmArgs(backendJvmArgs)
+    environment("FIREBASE_AUTH_EMULATOR_HOST", "127.0.0.1:9099")
 }

@@ -17,4 +17,11 @@ class Keys {
   );
   static const Key timelineEmptyFeed = Key('timeline_empty_feed');
   static const Key timelineRefreshIndicator = Key('timeline_refresh_indicator');
+
+  static const Key authenticationEmail = Key('authentication_email');
+  static const Key authenticationPassword = Key('authentication_password');
+  static const Key authenticationSignUp = Key('authentication_sign_up');
+  static const Key authenticationSignIn = Key('authentication_sign_in');
+  static const Key authenticationToggleMode = Key('authentication_toggle_mode');
+  static const Key authenticationSignOut = Key('authentication_sign_out');
 }

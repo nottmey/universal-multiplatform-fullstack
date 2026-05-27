@@ -1,0 +1,43 @@
+{
+  "auth": {
+    "providers": {
+      "anonymous": true,
+      "emailPassword": true
+    }
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "singleProjectMode": true
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "appId": "1:467071326079:android:3f5cfd4de9bf554b1bec4a",
+          "fileOutput": "android/app/google-services.json",
+          "projectId": "social-example-dev"
+        }
+      },
+      "dart": {
+        "lib/firebase/firebase_options.dart": {
+          "configurations": {
+            "android": "1:467071326079:android:3f5cfd4de9bf554b1bec4a",
+            "ios": "1:467071326079:ios:91ac4a855002f6561bec4a",
+            "web": "1:467071326079:web:d694cf5f9a72ced51bec4a"
+          },
+          "projectId": "social-example-dev"
+        }
+      },
+      "ios": {
+        "default": {
+          "appId": "1:467071326079:ios:91ac4a855002f6561bec4a",
+          "fileOutput": "ios/Runner/GoogleService-Info.plist",
+          "projectId": "social-example-dev",
+          "uploadDebugSymbols": false
+        }
+      }
+    }
+  }
+}

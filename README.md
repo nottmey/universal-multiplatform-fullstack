@@ -91,6 +91,10 @@ Streamed updates still need a state layer the UI can depend on without coupling 
 
 The stack still needs high-fidelity integration tests. **[Patrol](https://patrol.leancode.co/)** fits naturally with Flutter: tests stay in Dart, run headless in CI, and drive the real UI against a running backend. That is the best way we found to verify Rama's in-process simulation and the reactive path end to end.
 
+### Identity, Push Notifications, Analytics: Firebase
+
+As a simple option, to keep costs low and example integration easy, we chose Firebase for this template. It serves as a simple default pick, and is just a placeholder for whatever you may want to use.
+
 ### Repository layout
 
 The sample app is a minimal **global timeline** (shared feed, chronological posts) with a gRPC API, organized by **feature slices**:
@@ -103,14 +107,21 @@ The sample app is a minimal **global timeline** (shared feed, chronological post
 1. Install JDK **25** (latest LTS)
 2. Install Flutter **3.41.x**
 3. Install Node.js **22.x** or later
-4. Install [asdf](https://asdf-vm.com/guide/getting-started.html)
-5. Run setup: (details below)
+4. Install [Firebase CLI](https://firebase.google.com/docs/cli)
+5. Install [asdf](https://asdf-vm.com/guide/getting-started.html)
+6. Run setup: (details below)
 
 ```bash
 ./setup.sh
 ```
 
-6. Run the backend:
+6. Run the auth emulator:
+
+```bash
+cd frontend && firebase emulators:start --only auth
+```
+
+7. Run the backend:
 
 ```bash
 cd backend && ./gradlew runBackend

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:frontend/auth/authentication_sign_out.dart';
 import 'package:frontend/features/posts/post_compose_bar.dart';
 import 'package:frontend/features/posts/post_timeline_tile.dart';
 import 'package:frontend/features/timeline/timeline_feed_notifier.dart';
@@ -24,6 +25,12 @@ class TimelineScreen extends ConsumerWidget {
                 : null,
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
+          ),
+          IconButton(
+            key: Keys.authenticationSignOut,
+            onPressed: () => signOut(ref),
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
           ),
         ],
       ),

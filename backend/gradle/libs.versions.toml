@@ -16,6 +16,7 @@ errorprone-gradle = "5.1.0"
 error-prone = "2.49.0"
 checkstyle = "13.4.2"
 lombok = "1.18.46"
+firebase-admin = "9.8.0"
 
 [libraries]
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "error-prone" }
@@ -36,6 +37,7 @@ grpc-services = { module = "io.grpc:grpc-services", version.ref = "grpc" }
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
 jackson-module-scala213 = { module = "com.fasterxml.jackson.module:jackson-module-scala_2.13", version.ref = "jackson" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
 
 [plugins]
 protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }

@@ -1,21 +1,34 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/auth/ensure_anonymous_authentication.dart';
+import 'package:frontend/firebase/initialize_firebase.dart';
 import 'package:frontend/keys.dart';
 import 'package:frontend/social_example_app.dart';
 import 'package:patrol/patrol.dart';
 
 void main() {
   patrolTest(
-    'timeline post survives provider rebuild, then refresh, edit, delete',
+    'sign up, timeline post survives rebuild refresh edit delete, sign out',
     ($) async {
+      await initializeFirebase();
+      await ensureAnonymousAuthentication(FirebaseAuth.instance);
       await $.pumpWidget(const SocialExampleApp());
       await $.pump();
+
+      final stamp = DateTime.now().microsecondsSinceEpoch;
+      final email = 'patrol_$stamp@example.com';
+      const password = 'patrol-password';
+
+      await $(Keys.authenticationEmail).waitUntilVisible();
+      await $(Keys.authenticationEmail).enterText(email);
+      await $(Keys.authenticationPassword).enterText(password);
+      await $(Keys.authenticationSignUp).tap();
 
       await $(
         Keys.timelineRefreshIndicator,
       ).waitUntilVisible(timeout: const Duration(seconds: 120));
 
-      final stamp = DateTime.now().microsecondsSinceEpoch;
       final initialBody = 'patrol_e2e_$stamp';
       final editedBody = '${initialBody}_edited';
 
@@ -53,7 +66,6 @@ void main() {
         findsOneWidget,
       );
 
-      // rebuild the app like a full reload (backend keeps data)
       await $.pumpWidget(const SizedBox.shrink());
       await $.pump();
       await $.pumpWidget(const SocialExampleApp());
@@ -113,6 +125,9 @@ void main() {
       ).waitUntilVisible(timeout: const Duration(seconds: 60));
       expect(find.text(editedBody), findsNothing);
       expect(find.byKey(Keys.timelinePostLike), findsNothing);
+
+      await $(Keys.authenticationSignOut).tap();
+      await $(Keys.authenticationEmail).waitUntilVisible();
     },
   );
 }

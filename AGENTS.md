@@ -1,27 +1,34 @@
-# Agent instructions
+# Engineering Principles
 
-## Project principles
+- Act like a highly experienced and pragmatic software engineer.
+- Balance modern technologies and paradigms with timeless, proven engineering discipline.
+- Provide the optimal solution for the specific context at hand, balancing high engineering standards with practical constraints.
+- Recognize that code quality is highly contextual; avoid absolute labels of "good" or "bad" code.
+- Evaluate existing code as a product of its unique circumstances, focusing on adaptable engineering principles rather than rigidly copying patterns.
 
-Prefer the **simplest design that works**. After planning or coding, review for overengineering.
-Seek **fast feedback** (tests, checks, validation).
-When requirements are unclear, **ask before building**.
-Write/adapt **tests first**. Apply **red/green testing**. Keep tests effective. **Minimum amount of code, maximum amount of verification, fastest execution**.
-**Improve every code you touch**.
-**Communicate intent through naming**, not through comments.
-**Naming:** Never abbreviate identifiers—types, functions, parameters, variables, enum values, and file names should spell words in full. Exceptions: `e` for caught errors, `i` in classic `for`-loop indices. Booleans read as natural yes/no predicates (e.g. `isX`, `hasY`). Prefer 1-3 distinctive, non-generic words per name.
+- ALWAYS choose the simplest reasoning, architecture, project layout, code design that works.
+- ALWAYS prevent overengineering as much as possible. Review for it.
+- ALWAYS analyze for what use case a technology, library, language is intended to be used.
+- ONLY use a technology, library, language for it's intended purpose.
+- NO hacky solutions, NO workarounds, NO misuse! ALWAYS suggest a better solution.
+- ALWAYS prevent the introduction of technical debt. Review for it.
+- ALWAYS seek for clear requirements. Review for gaps and ambiguities.
+- ALWAYS verify every assumption and code/configuration change you make.
+- ALWAYS write tests first and apply red/green testing.
+- For testing, ALWAYS use the minimum amount of code for the maximum amount of verification and fastest execution.
+- ALWAYS aim to leave code cleaner than you found it, focusing on incremental, high-impact improvements to readability or code health without introducing scope creep.
+- ALWAYS prioritize self-documenting naming to explain what the code does; reserve comments for the why behind non-obvious decisions.
+
+# Project principles
+
 Prioritize **immutability** and a **functional programming** style.
+**Naming:** Never abbreviate identifiers. Types, functions, parameters, variables, enum values, and file names should spell words in full. Exceptions: `e` for caught errors, `i` in classic `for`-loop indices. Booleans read as natural yes/no predicates (e.g. `isX`, `hasY`). Prefer 1-3 distinctive, non-generic words per name.
 **Feature slices:** One feature = one domain. On the JVM keep domain types and Rama/gRPC code under `backend/src/main/java/social/example/features/<name>/` (tests under `backend/src/test/java/.../features/<name>/`). On Flutter keep feature UI and clients under `frontend/lib/features/<name>/`. Shared protos live in `backend/src/main/proto/`; generated Dart stubs live in `frontend/lib/proto/`. Do not spread domain rules across features—import across slices only at boundaries.
 For **Rama** architecture — modules, depots, PStates, paths, stream/microbatch/query topologies — read [`.cursor/skills/rama/SKILL.md`](.cursor/skills/rama/SKILL.md) for design essentials (ACK levels, mirrors, partitioning), then follow official **[Rama documentation](https://redplanetlabs.com/docs/~/index.html)** and **[Rama Javadoc](https://redplanetlabs.com/javadoc/index.html)**. Name types: Rama **inputs** end with `Event` (instances/collections: `event` / `events`); Rama **outputs** end with `View` (`view` / `views`). Types implementing `RamaSerializable` are prefixed with `Rama`.
 For **Armeria** (gRPC, routing) follow official **[Armeria documentation — Running a gRPC service](https://armeria.dev/docs/server/grpc)**.
 For **Patrol** integration tests follow official **[Patrol documentation](https://patrol.leancode.co/documentation)**.
 
-## Final validation
-
-Before treating a task as done (after code changes and unit/backend tests as appropriate), **always run** [`scripts/patrol_e2e.sh`](scripts/patrol_e2e.sh) from the repo root for end-to-end validation. Prefer `web-headless` when no physical device or simulator is required (e.g. `./scripts/patrol_e2e.sh web-headless`). Use another device argument per the script’s usage when validating on iOS/Android.
-
-Use **conventional commits** without scope param.
-
-## Dart conventions
+# Dart conventions
 
 Prefer **inferring generic type arguments** when the surrounding expression already fixes them. Write explicit type arguments only when inference fails or would widen incorrectly.
 
@@ -29,7 +36,7 @@ Omit redundant **parameter type annotations** on formals—including required or
 
 Never use **`final` on formal parameters**. Use **`final`** for locals, fields, and top-level variables.
 
-## Java conventions
+# Java conventions
 
 **Protobuf/gRPC:** Generated message getters never return `null` (proto3 strings default to `""`, nested messages to `getDefaultInstance()`). Do not null-check those values; use `isBlank()` for strings and `hasField()` when presence matters.
 

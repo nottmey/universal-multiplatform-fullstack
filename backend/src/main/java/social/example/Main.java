@@ -8,6 +8,7 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.rpl.rama.test.InProcessCluster;
 import io.grpc.BindableService;
+import io.grpc.ServerInterceptor;
 import io.grpc.protobuf.services.ProtoReflectionServiceV1;
 import java.time.Duration;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import social.example.auth.FirebaseBootstrap;
 import social.example.eventbus.EventBusService;
 import social.example.features.FeatureRegistry;
 import social.example.features.InstalledFeature;
@@ -32,13 +34,14 @@ public final class Main implements AutoCloseable {
   final Server server;
 
   public static Main bootstrap(final String[] args) {
-    val listenPort = args.length > 0 ? Integer.parseInt(args[0]) : DEFAULT_PORT;
-    log.info("starting on port {}", listenPort);
+    FirebaseBootstrap.initialize();
+    val port = args.length > 0 ? Integer.parseInt(args[0]) : DEFAULT_PORT;
+    log.info("starting on port {}", port);
     val cluster = InProcessCluster.create();
     log.info("cluster started");
-    val installedFeatures = FeatureRegistry.installAll(cluster);
+    val features = FeatureRegistry.installAll(cluster);
     log.info("features installed");
-    val server = buildServer(listenPort, services(installedFeatures));
+    val server = buildServer(port, FirebaseBootstrap.interceptor(), services(features));
     log.info("server built");
     return new Main(cluster, server);
   }
@@ -73,11 +76,15 @@ public final class Main implements AutoCloseable {
     CloseQuietly.close(cluster);
   }
 
-  private static Server buildServer(final int port, final List<BindableService> bindableServices) {
+  private static Server buildServer(
+      final int port,
+      final ServerInterceptor authInterceptor,
+      final List<BindableService> bindableServices) {
     return Server.builder()
         .http(port)
         .service(
             GrpcService.builder()
+                .intercept(authInterceptor)
                 .intercept(new GrpcLogging())
                 .addServices(bindableServices)
                 .build(),

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static social.example.GrpcTestSupport.context;
+import static social.example.GrpcTestSupport.withUserId;
 
 import io.grpc.Context;
 import io.grpc.Status;
@@ -296,6 +297,32 @@ class EventBusLifecycleTest {
               EventBusRequest.newBuilder().setContext(secondContext).build(),
               InProcessEventBus.discardingEventObserver(error));
       awaitLatch(firstEpochClosed, error, STREAM_TIMEOUT_SECONDS);
+    }
+  }
+
+  @Test
+  void eventBus_differentFirebaseUsersDoNotShareSession() throws Exception {
+    try (InProcessEventBus grpc = new InProcessEventBus()) {
+      val sharedContext = context("shared-session-id", 0);
+      val error = new AtomicReference<String>();
+      withUserId(grpc.asyncStub(), "first-user")
+          .eventBus(
+              EventBusRequest.newBuilder().setContext(sharedContext).build(),
+              InProcessEventBus.discardingEventObserver(error));
+      withUserId(grpc.asyncStub(), "second-user")
+          .eventBus(
+              EventBusRequest.newBuilder().setContext(sharedContext).build(),
+              InProcessEventBus.discardingEventObserver(error));
+      withUserId(grpc.blockingStub(), "first-user")
+          .subscribe(
+              SubscribeRequest.newBuilder()
+                  .setContext(sharedContext)
+                  .setSubscription(
+                      Subscription.newBuilder()
+                          .setSubscriptionId(UUID.randomUUID().toString())
+                          .setLikes(SubscribeLikesRequest.newBuilder().setPostId("any").build())
+                          .build())
+                  .build());
     }
   }
 

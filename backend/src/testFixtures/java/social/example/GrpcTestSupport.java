@@ -1,22 +1,39 @@
 package social.example;
 
+import static io.grpc.stub.MetadataUtils.newAttachHeadersInterceptor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.grpc.ManagedChannel;
+import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import io.grpc.stub.AbstractStub;
 import java.util.concurrent.TimeUnit;
 import lombok.val;
 import org.junit.jupiter.api.function.Executable;
 import social.example.eventbus.grpc.ConnectionContext;
 
 public final class GrpcTestSupport {
+  public static final String TEST_USER_ID = "test-user";
   private static final long SHUTDOWN_TIMEOUT_MILLIS = 200L;
+  private static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY =
+      Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
 
   private GrpcTestSupport() {}
+
+  public static <T> T withTestUserId(final T stub) {
+    return withUserId(stub, TEST_USER_ID);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> T withUserId(final T stub, final String userId) {
+    val headers = new Metadata();
+    headers.put(AUTHORIZATION_METADATA_KEY, "Bearer " + userId);
+    return (T) ((AbstractStub<?>) stub).withInterceptors(newAttachHeadersInterceptor(headers));
+  }
 
   public static ConnectionContext context(final String id, final long epoch) {
     return ConnectionContext.newBuilder().setId(id).setEpoch(epoch).build();

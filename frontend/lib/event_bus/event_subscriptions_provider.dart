@@ -43,14 +43,18 @@ final eventSubscriptionsProvider = StreamProvider.autoDispose
         }
         return Empty();
       });
-      ref.onDispose(
-        () => client.unsubscribe(
-          UnsubscribeRequest(
-            context: connectionContext,
-            subscriptionId: subscriptionId,
-          ),
-        ),
-      );
+      ref.onDispose(() {
+        unawaited(
+          client
+              .unsubscribe(
+                UnsubscribeRequest(
+                  context: connectionContext,
+                  subscriptionId: subscriptionId,
+                ),
+              )
+              .catchError((_) => Empty()),
+        );
+      });
 
       return controller.stream;
     });

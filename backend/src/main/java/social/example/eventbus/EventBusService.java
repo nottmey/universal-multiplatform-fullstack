@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import social.example.auth.FirebaseUserContext;
 import social.example.eventbus.grpc.ConnectionContext;
 import social.example.eventbus.grpc.Event;
 import social.example.eventbus.grpc.EventBusRequest;
@@ -26,7 +27,7 @@ import social.example.utils.CloseQuietly;
 public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase {
   private final EnumMap<Subscription.RequestCase, EventBusSubscription> subscriptionCases;
 
-  private final ConcurrentHashMap<ConnectionContext, InternalEventBusSession> activeSessions =
+  private final ConcurrentHashMap<EventBusSessionKey, InternalEventBusSession> activeSessions =
       new ConcurrentHashMap<>();
 
   public static EventBusService fromSubscriptions(
@@ -46,16 +47,16 @@ public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase
   public void eventBus(final EventBusRequest request, final StreamObserver<Event> response) {
     val stream = (ServerCallStreamObserver<Event>) response;
     try {
-      val connectionContext = validateConnectionContext(request.getContext());
-      closeOlderEpochs(connectionContext);
+      val sessionKey = sessionKey(request.getContext());
+      closeOlderEpochs(sessionKey);
       val session = new InternalEventBusSession(stream);
-      val replaced = activeSessions.put(connectionContext, session);
+      val replaced = activeSessions.put(sessionKey, session);
       if (replaced != null) {
         replaced.closeAll();
       }
       stream.setOnCancelHandler(
           () -> {
-            activeSessions.remove(connectionContext, session);
+            activeSessions.remove(sessionKey, session);
             session.closeAll();
           });
       try {
@@ -64,7 +65,7 @@ public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase
         }
       } catch (final StatusRuntimeException e) {
         log.warn("eventBus: subscription setup failed", e);
-        activeSessions.remove(connectionContext, session);
+        activeSessions.remove(sessionKey, session);
         session.closeAll();
         if (!stream.isCancelled()) {
           stream.onError(e);
@@ -81,8 +82,8 @@ public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase
   @Override
   public void subscribe(final SubscribeRequest request, final StreamObserver<Empty> response) {
     try {
-      val connectionContext = validateConnectionContext(request.getContext());
-      val busSession = activeSessions.get(connectionContext);
+      val sessionKey = sessionKey(request.getContext());
+      val busSession = activeSessions.get(sessionKey);
       if (busSession == null) {
         response.onError(
             Status.FAILED_PRECONDITION
@@ -102,8 +103,8 @@ public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase
   @Override
   public void unsubscribe(final UnsubscribeRequest request, final StreamObserver<Empty> response) {
     val id = request.getSubscriptionId();
-    val connectionContext = validateConnectionContext(request.getContext());
-    val session = activeSessions.get(connectionContext);
+    val sessionKey = sessionKey(request.getContext());
+    val session = activeSessions.get(sessionKey);
     if (session != null && !id.isBlank()) {
       session.removeSubscription(id);
     }
@@ -111,11 +112,27 @@ public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase
     response.onCompleted();
   }
 
-  private void closeOlderEpochs(final ConnectionContext context) {
-    val sessionId = context.getId();
-    val epoch = context.getEpoch();
+  private static EventBusSessionKey sessionKey(final ConnectionContext connectionContext) {
+    val sessionId = connectionContext.getId();
+    if (sessionId.isBlank()) {
+      throw Status.INVALID_ARGUMENT
+          .withDescription("connection context id is required")
+          .asRuntimeException();
+    }
+    val epoch = connectionContext.getEpoch();
+    if (epoch < 0) {
+      throw Status.INVALID_ARGUMENT
+          .withDescription("connection context epoch must be non-negative")
+          .asRuntimeException();
+    }
+    return new EventBusSessionKey(FirebaseUserContext.requireUserId(), sessionId, epoch);
+  }
+
+  private void closeOlderEpochs(final EventBusSessionKey sessionKey) {
     for (val other : activeSessions.keySet()) {
-      if (other.getId().equals(sessionId) && other.getEpoch() < epoch) {
+      if (other.userId().equals(sessionKey.userId())
+          && other.sessionId().equals(sessionKey.sessionId())
+          && other.epoch() < sessionKey.epoch()) {
         val previousSession = activeSessions.remove(other);
         if (previousSession != null) {
           previousSession.closeAll();
@@ -145,21 +162,6 @@ public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase
           .asRuntimeException();
     }
     session.addSubscription(id, handler.subscribe(session, subscription));
-  }
-
-  private static ConnectionContext validateConnectionContext(final ConnectionContext context) {
-    val id = context.getId();
-    if (id.isBlank()) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("connection context id is required")
-          .asRuntimeException();
-    }
-    if (context.getEpoch() < 0) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("connection context epoch must be non-negative")
-          .asRuntimeException();
-    }
-    return context;
   }
 
   @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
