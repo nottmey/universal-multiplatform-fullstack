@@ -27,8 +27,10 @@
     },
     "coverage-gutters.coverageBaseDir": "**",
     "coverage-gutters.coverageFileNames": [
-        "jacocoTestReport.xml"
+        "jacocoTestReport.xml",
+        "lcov.info"
     ],
+    "coverage-gutters.showGutterCoverage": true,
     "coverage-gutters.watchOnActivate": true,
     "cSpell.words": [
         "allprojects",
@@ -104,5 +106,7 @@
         "gradle",
         "scripts",
         ".*/build/.*"
-    ]
+    ],
+    "testing.coverageToolbarEnabled": true,
+    "testing.showCoverageInExplorer": true
 }
