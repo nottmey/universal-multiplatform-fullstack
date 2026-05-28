@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/event_bus/event_bus_provider.dart';
 import 'package:frontend/event_bus/event_bus_service_client_provider.dart';
 import 'package:frontend/proto/event_bus.pbgrpc.dart';
-import 'package:protobuf/well_known_types/google/protobuf/empty.pb.dart';
 import 'package:uuid/uuid.dart';
 
 export 'package:frontend/event_bus/event_bus_provider.dart';
@@ -18,7 +17,7 @@ final eventSubscriptionsProvider = StreamProvider.autoDispose
       ref.onDispose(controller.close);
 
       final eventBus = ref.watch(eventBusProvider);
-      final subscription = eventBus
+      final subscription = eventBus.stream
           .where((event) => event.subscriptionId == subscriptionId)
           .listen(
             controller.safeAdd,
@@ -35,29 +34,28 @@ final eventSubscriptionsProvider = StreamProvider.autoDispose
         context: connectionContext,
         subscription: subscriptionPayload,
       );
-      // TODO: await the opening of the event bus before subscribing, maybe Future<Steam>?
-      scheduleMicrotask(() {
-        client.subscribe(subscribeRpcRequest).catchError((e, s) async {
-          await subscription.cancel();
+      final unsubscribeRpcRequest = UnsubscribeRequest(
+        context: connectionContext,
+        subscriptionId: subscriptionId,
+      );
+      unawaited(() async {
+        try {
+          await eventBus.established;
           if (!controller.isClosed) {
-            controller.addError(e, s);
-            await controller.close();
+            await client.subscribe(subscribeRpcRequest);
+            if (controller.isClosed) {
+              // controller was closed while we subscribed,
+              // onDispose unsubscribe possible happened before we subscribed,
+              // so we need to trigger another unsubscribe to ensure the subscription is removed
+              await client.unsubscribe(unsubscribeRpcRequest);
+            }
           }
-          return Empty();
-        });
-      });
-      ref.onDispose(() {
-        unawaited(
-          client
-              .unsubscribe(
-                UnsubscribeRequest(
-                  context: connectionContext,
-                  subscriptionId: subscriptionId,
-                ),
-              )
-              .catchError((_) => Empty()),
-        );
-      });
+        } catch (e, s) {
+          controller.safeAddError(e, s);
+          await subscription.cancel();
+        }
+      }());
+      ref.onDispose(() => client.unsubscribe(unsubscribeRpcRequest));
 
       return controller.stream;
     });
