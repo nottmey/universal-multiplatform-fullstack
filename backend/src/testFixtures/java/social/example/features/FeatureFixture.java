@@ -133,7 +133,9 @@ public class FeatureFixture implements BeforeEachCallback, AfterEachCallback {
         new StreamObserver<Event>() {
           @Override
           public void onNext(final Event event) {
-            eventBusEvents.add(event);
+            if (!event.hasConnectionReady()) {
+              eventBusEvents.add(event);
+            }
           }
 
           @Override

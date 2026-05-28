@@ -14,6 +14,7 @@ import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import social.example.auth.FirebaseUserContext;
 import social.example.eventbus.grpc.ConnectionContext;
+import social.example.eventbus.grpc.ConnectionReady;
 import social.example.eventbus.grpc.Event;
 import social.example.eventbus.grpc.EventBusRequest;
 import social.example.eventbus.grpc.EventBusServiceGrpc;
@@ -59,18 +60,8 @@ public class EventBusService extends EventBusServiceGrpc.EventBusServiceImplBase
             activeSessions.remove(sessionKey, session);
             session.closeAll();
           });
-      try {
-        for (val subscription : request.getSubscriptionsList()) {
-          startSubscription(session, subscription);
-        }
-      } catch (final StatusRuntimeException e) {
-        log.warn("eventBus: subscription setup failed", e);
-        activeSessions.remove(sessionKey, session);
-        session.closeAll();
-        if (!stream.isCancelled()) {
-          stream.onError(e);
-        }
-      }
+      session.emit(
+          Event.newBuilder().setConnectionReady(ConnectionReady.getDefaultInstance()).build());
     } catch (final StatusRuntimeException e) {
       log.warn("eventBus: connection setup failed", e);
       if (!stream.isCancelled()) {

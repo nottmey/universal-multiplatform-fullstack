@@ -34,6 +34,34 @@ class EventBusLifecycleTest {
   private static final long STREAM_TIMEOUT_SECONDS = 5L;
 
   @Test
+  void eventBus_emitsConnectionReadyWhenSessionOpens() throws Exception {
+    try (InProcessEventBus grpc = new InProcessEventBus()) {
+      val gotConnectionReady = new CountDownLatch(1);
+      val error = new AtomicReference<String>();
+      grpc.asyncStub()
+          .eventBus(
+              EventBusRequest.newBuilder().setContext(context("test", 0)).build(),
+              new StreamObserver<Event>() {
+                @Override
+                public void onNext(final Event event) {
+                  if (event.hasConnectionReady()) {
+                    gotConnectionReady.countDown();
+                  }
+                }
+
+                @Override
+                public void onError(final Throwable throwable) {
+                  error.set(throwable.getMessage());
+                }
+
+                @Override
+                public void onCompleted() {}
+              });
+      awaitLatch(gotConnectionReady, error, STREAM_TIMEOUT_SECONDS);
+    }
+  }
+
+  @Test
   void eventBus_deliversSyntheticTimelineEvent_withSessionMetadata() throws Exception {
     val timelineStub =
         new EventBusSubscription() {
@@ -58,16 +86,10 @@ class EventBusLifecycleTest {
       val subscriptionId = UUID.randomUUID().toString();
       val gotEvent = new CountDownLatch(1);
       val error = new AtomicReference<String>();
+      val connectionContext = context("test", 0);
       grpc.asyncStub()
           .eventBus(
-              EventBusRequest.newBuilder()
-                  .setContext(context("test", 0))
-                  .addSubscriptions(
-                      Subscription.newBuilder()
-                          .setSubscriptionId(subscriptionId)
-                          .setTimeline(SubscribeTimelineRequest.getDefaultInstance())
-                          .build())
-                  .build(),
+              EventBusRequest.newBuilder().setContext(connectionContext).build(),
               new StreamObserver<Event>() {
                 @Override
                 public void onNext(final Event event) {
@@ -86,6 +108,16 @@ class EventBusLifecycleTest {
                 @Override
                 public void onCompleted() {}
               });
+      grpc.blockingStub()
+          .subscribe(
+              SubscribeRequest.newBuilder()
+                  .setContext(connectionContext)
+                  .setSubscription(
+                      Subscription.newBuilder()
+                          .setSubscriptionId(subscriptionId)
+                          .setTimeline(SubscribeTimelineRequest.getDefaultInstance())
+                          .build())
+                  .build());
       awaitLatch(gotEvent, error, STREAM_TIMEOUT_SECONDS);
     }
   }

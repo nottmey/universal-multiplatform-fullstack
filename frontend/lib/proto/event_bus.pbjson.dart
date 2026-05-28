@@ -41,23 +41,13 @@ const EventBusRequest$json = {
       '6': '.social.example.eventbus.grpc.ConnectionContext',
       '10': 'context'
     },
-    {
-      '1': 'subscriptions',
-      '3': 2,
-      '4': 3,
-      '5': 11,
-      '6': '.social.example.eventbus.grpc.Subscription',
-      '10': 'subscriptions'
-    },
   ],
 };
 
 /// Descriptor for `EventBusRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List eventBusRequestDescriptor = $convert.base64Decode(
     'Cg9FdmVudEJ1c1JlcXVlc3QSSQoHY29udGV4dBgBIAEoCzIvLnNvY2lhbC5leGFtcGxlLmV2ZW'
-    '50YnVzLmdycGMuQ29ubmVjdGlvbkNvbnRleHRSB2NvbnRleHQSUAoNc3Vic2NyaXB0aW9ucxgC'
-    'IAMoCzIqLnNvY2lhbC5leGFtcGxlLmV2ZW50YnVzLmdycGMuU3Vic2NyaXB0aW9uUg1zdWJzY3'
-    'JpcHRpb25z');
+    '50YnVzLmdycGMuQ29ubmVjdGlvbkNvbnRleHRSB2NvbnRleHQ=');
 
 @$core.Deprecated('Use subscribeRequestDescriptor instead')
 const SubscribeRequest$json = {
@@ -96,7 +86,7 @@ const Subscription$json = {
     {'1': 'subscription_id', '3': 1, '4': 1, '5': 9, '10': 'subscriptionId'},
     {
       '1': 'timeline',
-      '3': 2,
+      '3': 3,
       '4': 1,
       '5': 11,
       '6': '.social.example.features.timeline.grpc.SubscribeTimelineRequest',
@@ -105,7 +95,7 @@ const Subscription$json = {
     },
     {
       '1': 'post',
-      '3': 3,
+      '3': 4,
       '4': 1,
       '5': 11,
       '6': '.social.example.features.posts.grpc.SubscribePostRequest',
@@ -114,7 +104,7 @@ const Subscription$json = {
     },
     {
       '1': 'likes',
-      '3': 4,
+      '3': 5,
       '4': 1,
       '5': 11,
       '6': '.social.example.features.likes.grpc.SubscribeLikesRequest',
@@ -130,11 +120,20 @@ const Subscription$json = {
 /// Descriptor for `Subscription`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List subscriptionDescriptor = $convert.base64Decode(
     'CgxTdWJzY3JpcHRpb24SJwoPc3Vic2NyaXB0aW9uX2lkGAEgASgJUg5zdWJzY3JpcHRpb25JZB'
-    'JdCgh0aW1lbGluZRgCIAEoCzI/LnNvY2lhbC5leGFtcGxlLmZlYXR1cmVzLnRpbWVsaW5lLmdy'
-    'cGMuU3Vic2NyaWJlVGltZWxpbmVSZXF1ZXN0SABSCHRpbWVsaW5lEk4KBHBvc3QYAyABKAsyOC'
+    'JdCgh0aW1lbGluZRgDIAEoCzI/LnNvY2lhbC5leGFtcGxlLmZlYXR1cmVzLnRpbWVsaW5lLmdy'
+    'cGMuU3Vic2NyaWJlVGltZWxpbmVSZXF1ZXN0SABSCHRpbWVsaW5lEk4KBHBvc3QYBCABKAsyOC'
     '5zb2NpYWwuZXhhbXBsZS5mZWF0dXJlcy5wb3N0cy5ncnBjLlN1YnNjcmliZVBvc3RSZXF1ZXN0'
-    'SABSBHBvc3QSUQoFbGlrZXMYBCABKAsyOS5zb2NpYWwuZXhhbXBsZS5mZWF0dXJlcy5saWtlcy'
+    'SABSBHBvc3QSUQoFbGlrZXMYBSABKAsyOS5zb2NpYWwuZXhhbXBsZS5mZWF0dXJlcy5saWtlcy'
     '5ncnBjLlN1YnNjcmliZUxpa2VzUmVxdWVzdEgAUgVsaWtlc0IJCgdyZXF1ZXN0');
+
+@$core.Deprecated('Use connectionReadyDescriptor instead')
+const ConnectionReady$json = {
+  '1': 'ConnectionReady',
+};
+
+/// Descriptor for `ConnectionReady`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List connectionReadyDescriptor =
+    $convert.base64Decode('Cg9Db25uZWN0aW9uUmVhZHk=');
 
 @$core.Deprecated('Use eventDescriptor instead')
 const Event$json = {
@@ -142,8 +141,17 @@ const Event$json = {
   '2': [
     {'1': 'subscription_id', '3': 1, '4': 1, '5': 9, '10': 'subscriptionId'},
     {
-      '1': 'timeline',
+      '1': 'connection_ready',
       '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.social.example.eventbus.grpc.ConnectionReady',
+      '9': 0,
+      '10': 'connectionReady'
+    },
+    {
+      '1': 'timeline',
+      '3': 3,
       '4': 1,
       '5': 11,
       '6': '.social.example.features.timeline.grpc.SubscribeTimelineResponse',
@@ -152,7 +160,7 @@ const Event$json = {
     },
     {
       '1': 'post',
-      '3': 3,
+      '3': 4,
       '4': 1,
       '5': 11,
       '6': '.social.example.features.posts.grpc.SubscribePostResponse',
@@ -161,7 +169,7 @@ const Event$json = {
     },
     {
       '1': 'likes',
-      '3': 4,
+      '3': 5,
       '4': 1,
       '5': 11,
       '6': '.social.example.features.likes.grpc.SubscribeLikesResponse',
@@ -176,12 +184,14 @@ const Event$json = {
 
 /// Descriptor for `Event`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List eventDescriptor = $convert.base64Decode(
-    'CgVFdmVudBInCg9zdWJzY3JpcHRpb25faWQYASABKAlSDnN1YnNjcmlwdGlvbklkEl4KCHRpbW'
-    'VsaW5lGAIgASgLMkAuc29jaWFsLmV4YW1wbGUuZmVhdHVyZXMudGltZWxpbmUuZ3JwYy5TdWJz'
-    'Y3JpYmVUaW1lbGluZVJlc3BvbnNlSABSCHRpbWVsaW5lEk8KBHBvc3QYAyABKAsyOS5zb2NpYW'
-    'wuZXhhbXBsZS5mZWF0dXJlcy5wb3N0cy5ncnBjLlN1YnNjcmliZVBvc3RSZXNwb25zZUgAUgRw'
-    'b3N0ElIKBWxpa2VzGAQgASgLMjouc29jaWFsLmV4YW1wbGUuZmVhdHVyZXMubGlrZXMuZ3JwYy'
-    '5TdWJzY3JpYmVMaWtlc1Jlc3BvbnNlSABSBWxpa2VzQgoKCHJlc3BvbnNl');
+    'CgVFdmVudBInCg9zdWJzY3JpcHRpb25faWQYASABKAlSDnN1YnNjcmlwdGlvbklkEloKEGNvbm'
+    '5lY3Rpb25fcmVhZHkYAiABKAsyLS5zb2NpYWwuZXhhbXBsZS5ldmVudGJ1cy5ncnBjLkNvbm5l'
+    'Y3Rpb25SZWFkeUgAUg9jb25uZWN0aW9uUmVhZHkSXgoIdGltZWxpbmUYAyABKAsyQC5zb2NpYW'
+    'wuZXhhbXBsZS5mZWF0dXJlcy50aW1lbGluZS5ncnBjLlN1YnNjcmliZVRpbWVsaW5lUmVzcG9u'
+    'c2VIAFIIdGltZWxpbmUSTwoEcG9zdBgEIAEoCzI5LnNvY2lhbC5leGFtcGxlLmZlYXR1cmVzLn'
+    'Bvc3RzLmdycGMuU3Vic2NyaWJlUG9zdFJlc3BvbnNlSABSBHBvc3QSUgoFbGlrZXMYBSABKAsy'
+    'Oi5zb2NpYWwuZXhhbXBsZS5mZWF0dXJlcy5saWtlcy5ncnBjLlN1YnNjcmliZUxpa2VzUmVzcG'
+    '9uc2VIAFIFbGlrZXNCCgoIcmVzcG9uc2U=');
 
 @$core.Deprecated('Use unsubscribeRequestDescriptor instead')
 const UnsubscribeRequest$json = {

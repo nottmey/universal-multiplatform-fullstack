@@ -13,8 +13,8 @@ MockEventBusServiceClient setupRecordingEventBusClient({
   List<EventBusRequest>? eventBusRequests,
   List<SubscribeRequest>? subscribeCalls,
   List<UnsubscribeRequest>? unsubscribeCalls,
-  Future<Map<String, String>>? eventBusHeadersFuture,
   void Function(StreamController<Event> busController)? onEventBusStream,
+  bool deferConnectionReady = false,
   Future<Empty> Function(SubscribeRequest request)? subscribeResponse,
 }) {
   final client = MockEventBusServiceClient();
@@ -27,10 +27,12 @@ MockEventBusServiceClient setupRecordingEventBusClient({
       invocation.positionalArguments.first as EventBusRequest,
     );
     final busController = StreamController<Event>();
+    if (!deferConnectionReady) {
+      busController.add(Event(connectionReady: ConnectionReady()));
+    }
     onEventBusStream?.call(busController);
     return FakeEventBusResponseStream(
       busController.stream,
-      headersFuture: eventBusHeadersFuture,
       onCancel: () => lifecycleTimeline?.add(ClosedBus()),
     );
   });

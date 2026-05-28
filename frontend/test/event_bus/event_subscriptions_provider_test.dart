@@ -57,9 +57,6 @@ void main() {
             eventBusClientBuilder: (_) => setupRecordingEventBusClient(
               subscribeCalls: subscribeCalls,
               unsubscribeCalls: unsubscribeCalls,
-              eventBusHeadersFuture: Future<Map<String, String>>.value(
-                <String, String>{},
-              ),
               subscribeResponse: (_) => subscribeCompleter.future,
             ),
           );
@@ -88,24 +85,26 @@ void main() {
       );
 
       test(
-        'exposes GrpcError when EventBus headers fail without subscribing',
+        'exposes GrpcError when EventBus never becomes ready without subscribing',
         () async {
           final subscribeCalls = <SubscribeRequest>[];
           final unsubscribeCalls = <UnsubscribeRequest>[];
-          final headersCompleter = Completer<Map<String, String>>();
           final subscriptionArgument = Subscription(
-            post: SubscribePostRequest(postId: 'headers-fail'),
+            post: SubscribePostRequest(postId: 'connection-not-ready'),
           );
-          const headersFailure = GrpcError.unavailable(
+          const handshakeFailure = GrpcError.unavailable(
             'EventBus handshake failed',
           );
 
           final container = createEventBusProviderContainer(
-            sessionId: 'headers-failure-session',
+            sessionId: 'connection-not-ready-session',
             eventBusClientBuilder: (_) => setupRecordingEventBusClient(
               subscribeCalls: subscribeCalls,
               unsubscribeCalls: unsubscribeCalls,
-              eventBusHeadersFuture: headersCompleter.future,
+              deferConnectionReady: true,
+              onEventBusStream: (controller) {
+                controller.addError(handshakeFailure);
+              },
             ),
           );
           addTearDown(container.dispose);
@@ -118,15 +117,13 @@ void main() {
           );
 
           await Future<void>.delayed(Duration.zero);
-          headersCompleter.completeError(headersFailure);
-          await Future<void>.delayed(Duration.zero);
           await Future<void>.delayed(Duration.zero);
 
           expect(subscribeCalls, isEmpty);
           expect(unsubscribeCalls, isEmpty);
           expectLastAsyncGrpcError(
             states,
-            code: headersFailure.code,
+            code: handshakeFailure.code,
             message: 'EventBus handshake failed',
           );
         },
@@ -148,9 +145,6 @@ void main() {
           eventBusClientBuilder: (_) => setupRecordingEventBusClient(
             subscribeCalls: subscribeCalls,
             unsubscribeCalls: unsubscribeCalls,
-            eventBusHeadersFuture: Future<Map<String, String>>.value(
-              <String, String>{},
-            ),
             onEventBusStream: (controller) => busController = controller,
           ),
         );
@@ -190,47 +184,50 @@ void main() {
     });
 
     group('subscription cases', () {
-      testWidgets('does not call subscribe until EventBus headers complete', (
-        WidgetTester tester,
-      ) async {
-        final subscribeCalls = <SubscribeRequest>[];
-        final headersCompleter = Completer<Map<String, String>>();
-        StreamController<Event>? busController;
+      testWidgets(
+        'does not call subscribe until EventBus connection is ready',
+        (WidgetTester tester) async {
+          final subscribeCalls = <SubscribeRequest>[];
+          StreamController<Event>? busController;
 
-        final container = createEventBusProviderContainer(
-          sessionId: 'delayed-headers-session',
-          eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-            subscribeCalls: subscribeCalls,
-            eventBusHeadersFuture: headersCompleter.future,
-            onEventBusStream: (controller) => busController = controller,
-          ),
-        );
-        addTearDown(container.dispose);
+          final container = createEventBusProviderContainer(
+            sessionId: 'delayed-connection-ready-session',
+            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
+              subscribeCalls: subscribeCalls,
+              deferConnectionReady: true,
+              onEventBusStream: (controller) => busController = controller,
+            ),
+          );
+          addTearDown(container.dispose);
 
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: const MaterialApp(
-              home: Scaffold(
-                body: PostSubscriptionFixture(postId: 'delayed-post'),
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: const MaterialApp(
+                home: Scaffold(
+                  body: PostSubscriptionFixture(postId: 'delayed-post'),
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 1));
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 1));
 
-        expect(subscribeCalls, isEmpty);
+          expect(subscribeCalls, isEmpty);
 
-        headersCompleter.complete(<String, String>{});
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 1));
+          busController!.add(Event(connectionReady: ConnectionReady()));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 1));
 
-        expect(subscribeCalls, hasLength(1));
-        expect(subscribeCalls.single.subscription.post.postId, 'delayed-post');
+          expect(subscribeCalls, hasLength(1));
+          expect(
+            subscribeCalls.single.subscription.post.postId,
+            'delayed-post',
+          );
 
-        await busController!.close();
-      });
+          await busController!.close();
+        },
+      );
     });
 
     group('multiplex cases', () {
@@ -244,9 +241,6 @@ void main() {
           sessionId: 'wrong-correlation-session',
           eventBusClientBuilder: (_) => setupRecordingEventBusClient(
             subscribeCalls: subscribeCalls,
-            eventBusHeadersFuture: Future<Map<String, String>>.value(
-              <String, String>{},
-            ),
             onEventBusStream: (controller) => busController = controller,
           ),
         );
@@ -293,9 +287,6 @@ void main() {
           sessionId: 'dual-subscription-session',
           eventBusClientBuilder: (_) => setupRecordingEventBusClient(
             subscribeCalls: subscribeCalls,
-            eventBusHeadersFuture: Future<Map<String, String>>.value(
-              <String, String>{},
-            ),
             onEventBusStream: (controller) => busController = controller,
           ),
         );
@@ -369,9 +360,6 @@ void main() {
               subscribeCalls: subscribeCalls,
               unsubscribeCalls: unsubscribeCalls,
               eventBusRequests: eventBusRequests,
-              eventBusHeadersFuture: Future<Map<String, String>>.value(
-                <String, String>{},
-              ),
               onEventBusStream: (controller) => busController = controller,
             ),
           );
@@ -441,9 +429,6 @@ void main() {
             eventBusClientBuilder: (_) => setupRecordingEventBusClient(
               subscribeCalls: subscribeCalls,
               unsubscribeCalls: unsubscribeCalls,
-              eventBusHeadersFuture: Future<Map<String, String>>.value(
-                <String, String>{},
-              ),
               subscribeResponse: (_) => subscribeCompleter.future,
             ),
           );
@@ -677,9 +662,6 @@ void main() {
               lifecycleTimeline: lifecycleTimeline,
               subscribeCalls: subscribeCalls,
               eventBusRequests: eventBusRequests,
-              eventBusHeadersFuture: Future<Map<String, String>>.value(
-                <String, String>{},
-              ),
             ),
           );
           addTearDown(container.dispose);

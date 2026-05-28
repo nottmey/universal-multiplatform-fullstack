@@ -24,7 +24,6 @@ message ConnectionContext {
 
 message EventBusRequest {
   ConnectionContext context = 1;
-  repeated Subscription subscriptions = 2;
 }
 
 message SubscribeRequest {
@@ -35,18 +34,23 @@ message SubscribeRequest {
 message Subscription {
   string subscription_id = 1;
   oneof request {
-    social.example.features.timeline.grpc.SubscribeTimelineRequest timeline = 2;
-    social.example.features.posts.grpc.SubscribePostRequest post = 3;
-    social.example.features.likes.grpc.SubscribeLikesRequest likes = 4;
+    // skipping 2, to align numbering with Event.response
+    social.example.features.timeline.grpc.SubscribeTimelineRequest timeline = 3;
+    social.example.features.posts.grpc.SubscribePostRequest post = 4;
+    social.example.features.likes.grpc.SubscribeLikesRequest likes = 5;
   }
 }
+
+// Emitted once when the server has registered the EventBus session.
+message ConnectionReady {}
 
 message Event {
   string subscription_id = 1;
   oneof response {
-    social.example.features.timeline.grpc.SubscribeTimelineResponse timeline = 2;
-    social.example.features.posts.grpc.SubscribePostResponse post = 3;
-    social.example.features.likes.grpc.SubscribeLikesResponse likes = 4;
+    ConnectionReady connection_ready = 2;
+    social.example.features.timeline.grpc.SubscribeTimelineResponse timeline = 3;
+    social.example.features.posts.grpc.SubscribePostResponse post = 4;
+    social.example.features.likes.grpc.SubscribeLikesResponse likes = 5;
   }
 }
 

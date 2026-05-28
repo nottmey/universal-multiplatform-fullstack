@@ -91,11 +91,9 @@ class ConnectionContext extends $pb.GeneratedMessage {
 class EventBusRequest extends $pb.GeneratedMessage {
   factory EventBusRequest({
     ConnectionContext? context,
-    $core.Iterable<Subscription>? subscriptions,
   }) {
     final result = create();
     if (context != null) result.context = context;
-    if (subscriptions != null) result.subscriptions.addAll(subscriptions);
     return result;
   }
 
@@ -115,8 +113,6 @@ class EventBusRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOM<ConnectionContext>(1, _omitFieldNames ? '' : 'context',
         subBuilder: ConnectionContext.create)
-    ..pPM<Subscription>(2, _omitFieldNames ? '' : 'subscriptions',
-        subBuilder: Subscription.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -148,9 +144,6 @@ class EventBusRequest extends $pb.GeneratedMessage {
   void clearContext() => $_clearField(1);
   @$pb.TagNumber(1)
   ConnectionContext ensureContext() => $_ensure(0);
-
-  @$pb.TagNumber(2)
-  $pb.PbList<Subscription> get subscriptions => $_getList(1);
 }
 
 class SubscribeRequest extends $pb.GeneratedMessage {
@@ -254,9 +247,9 @@ class Subscription extends $pb.GeneratedMessage {
 
   static const $core.Map<$core.int, Subscription_Request>
       _Subscription_RequestByTag = {
-    2: Subscription_Request.timeline,
-    3: Subscription_Request.post,
-    4: Subscription_Request.likes,
+    3: Subscription_Request.timeline,
+    4: Subscription_Request.post,
+    5: Subscription_Request.likes,
     0: Subscription_Request.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -264,13 +257,13 @@ class Subscription extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'social.example.eventbus.grpc'),
       createEmptyInstance: create)
-    ..oo(0, [2, 3, 4])
+    ..oo(0, [3, 4, 5])
     ..aOS(1, _omitFieldNames ? '' : 'subscriptionId')
-    ..aOM<$2.SubscribeTimelineRequest>(2, _omitFieldNames ? '' : 'timeline',
+    ..aOM<$2.SubscribeTimelineRequest>(3, _omitFieldNames ? '' : 'timeline',
         subBuilder: $2.SubscribeTimelineRequest.create)
-    ..aOM<$3.SubscribePostRequest>(3, _omitFieldNames ? '' : 'post',
+    ..aOM<$3.SubscribePostRequest>(4, _omitFieldNames ? '' : 'post',
         subBuilder: $3.SubscribePostRequest.create)
-    ..aOM<$4.SubscribeLikesRequest>(4, _omitFieldNames ? '' : 'likes',
+    ..aOM<$4.SubscribeLikesRequest>(5, _omitFieldNames ? '' : 'likes',
         subBuilder: $4.SubscribeLikesRequest.create)
     ..hasRequiredFields = false;
 
@@ -293,14 +286,14 @@ class Subscription extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<Subscription>(create);
   static Subscription? _defaultInstance;
 
-  @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
   Subscription_Request whichRequest() =>
       _Subscription_RequestByTag[$_whichOneof(0)]!;
-  @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
   void clearRequest() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -312,51 +305,94 @@ class Subscription extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSubscriptionId() => $_clearField(1);
 
-  @$pb.TagNumber(2)
+  /// skipping 2, to align numbering with Event.response
+  @$pb.TagNumber(3)
   $2.SubscribeTimelineRequest get timeline => $_getN(1);
-  @$pb.TagNumber(2)
-  set timeline($2.SubscribeTimelineRequest value) => $_setField(2, value);
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  set timeline($2.SubscribeTimelineRequest value) => $_setField(3, value);
+  @$pb.TagNumber(3)
   $core.bool hasTimeline() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearTimeline() => $_clearField(2);
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  void clearTimeline() => $_clearField(3);
+  @$pb.TagNumber(3)
   $2.SubscribeTimelineRequest ensureTimeline() => $_ensure(1);
 
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
   $3.SubscribePostRequest get post => $_getN(2);
-  @$pb.TagNumber(3)
-  set post($3.SubscribePostRequest value) => $_setField(3, value);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
+  set post($3.SubscribePostRequest value) => $_setField(4, value);
+  @$pb.TagNumber(4)
   $core.bool hasPost() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearPost() => $_clearField(3);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
+  void clearPost() => $_clearField(4);
+  @$pb.TagNumber(4)
   $3.SubscribePostRequest ensurePost() => $_ensure(2);
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
   $4.SubscribeLikesRequest get likes => $_getN(3);
-  @$pb.TagNumber(4)
-  set likes($4.SubscribeLikesRequest value) => $_setField(4, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
+  set likes($4.SubscribeLikesRequest value) => $_setField(5, value);
+  @$pb.TagNumber(5)
   $core.bool hasLikes() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearLikes() => $_clearField(4);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
+  void clearLikes() => $_clearField(5);
+  @$pb.TagNumber(5)
   $4.SubscribeLikesRequest ensureLikes() => $_ensure(3);
 }
 
-enum Event_Response { timeline, post, likes, notSet }
+/// Emitted once when the server has registered the EventBus session.
+class ConnectionReady extends $pb.GeneratedMessage {
+  factory ConnectionReady() => create();
+
+  ConnectionReady._();
+
+  factory ConnectionReady.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ConnectionReady.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConnectionReady',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'social.example.eventbus.grpc'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectionReady clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectionReady copyWith(void Function(ConnectionReady) updates) =>
+      super.copyWith((message) => updates(message as ConnectionReady))
+          as ConnectionReady;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ConnectionReady create() => ConnectionReady._();
+  @$core.override
+  ConnectionReady createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ConnectionReady getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConnectionReady>(create);
+  static ConnectionReady? _defaultInstance;
+}
+
+enum Event_Response { connectionReady, timeline, post, likes, notSet }
 
 class Event extends $pb.GeneratedMessage {
   factory Event({
     $core.String? subscriptionId,
+    ConnectionReady? connectionReady,
     $2.SubscribeTimelineResponse? timeline,
     $3.SubscribePostResponse? post,
     $4.SubscribeLikesResponse? likes,
   }) {
     final result = create();
     if (subscriptionId != null) result.subscriptionId = subscriptionId;
+    if (connectionReady != null) result.connectionReady = connectionReady;
     if (timeline != null) result.timeline = timeline;
     if (post != null) result.post = post;
     if (likes != null) result.likes = likes;
@@ -373,9 +409,10 @@ class Event extends $pb.GeneratedMessage {
       create()..mergeFromJson(json, registry);
 
   static const $core.Map<$core.int, Event_Response> _Event_ResponseByTag = {
-    2: Event_Response.timeline,
-    3: Event_Response.post,
-    4: Event_Response.likes,
+    2: Event_Response.connectionReady,
+    3: Event_Response.timeline,
+    4: Event_Response.post,
+    5: Event_Response.likes,
     0: Event_Response.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -383,13 +420,15 @@ class Event extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'social.example.eventbus.grpc'),
       createEmptyInstance: create)
-    ..oo(0, [2, 3, 4])
+    ..oo(0, [2, 3, 4, 5])
     ..aOS(1, _omitFieldNames ? '' : 'subscriptionId')
-    ..aOM<$2.SubscribeTimelineResponse>(2, _omitFieldNames ? '' : 'timeline',
+    ..aOM<ConnectionReady>(2, _omitFieldNames ? '' : 'connectionReady',
+        subBuilder: ConnectionReady.create)
+    ..aOM<$2.SubscribeTimelineResponse>(3, _omitFieldNames ? '' : 'timeline',
         subBuilder: $2.SubscribeTimelineResponse.create)
-    ..aOM<$3.SubscribePostResponse>(3, _omitFieldNames ? '' : 'post',
+    ..aOM<$3.SubscribePostResponse>(4, _omitFieldNames ? '' : 'post',
         subBuilder: $3.SubscribePostResponse.create)
-    ..aOM<$4.SubscribeLikesResponse>(4, _omitFieldNames ? '' : 'likes',
+    ..aOM<$4.SubscribeLikesResponse>(5, _omitFieldNames ? '' : 'likes',
         subBuilder: $4.SubscribeLikesResponse.create)
     ..hasRequiredFields = false;
 
@@ -414,10 +453,12 @@ class Event extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
   Event_Response whichResponse() => _Event_ResponseByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(5)
   void clearResponse() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -430,37 +471,48 @@ class Event extends $pb.GeneratedMessage {
   void clearSubscriptionId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $2.SubscribeTimelineResponse get timeline => $_getN(1);
+  ConnectionReady get connectionReady => $_getN(1);
   @$pb.TagNumber(2)
-  set timeline($2.SubscribeTimelineResponse value) => $_setField(2, value);
+  set connectionReady(ConnectionReady value) => $_setField(2, value);
   @$pb.TagNumber(2)
-  $core.bool hasTimeline() => $_has(1);
+  $core.bool hasConnectionReady() => $_has(1);
   @$pb.TagNumber(2)
-  void clearTimeline() => $_clearField(2);
+  void clearConnectionReady() => $_clearField(2);
   @$pb.TagNumber(2)
-  $2.SubscribeTimelineResponse ensureTimeline() => $_ensure(1);
+  ConnectionReady ensureConnectionReady() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $3.SubscribePostResponse get post => $_getN(2);
+  $2.SubscribeTimelineResponse get timeline => $_getN(2);
   @$pb.TagNumber(3)
-  set post($3.SubscribePostResponse value) => $_setField(3, value);
+  set timeline($2.SubscribeTimelineResponse value) => $_setField(3, value);
   @$pb.TagNumber(3)
-  $core.bool hasPost() => $_has(2);
+  $core.bool hasTimeline() => $_has(2);
   @$pb.TagNumber(3)
-  void clearPost() => $_clearField(3);
+  void clearTimeline() => $_clearField(3);
   @$pb.TagNumber(3)
-  $3.SubscribePostResponse ensurePost() => $_ensure(2);
+  $2.SubscribeTimelineResponse ensureTimeline() => $_ensure(2);
 
   @$pb.TagNumber(4)
-  $4.SubscribeLikesResponse get likes => $_getN(3);
+  $3.SubscribePostResponse get post => $_getN(3);
   @$pb.TagNumber(4)
-  set likes($4.SubscribeLikesResponse value) => $_setField(4, value);
+  set post($3.SubscribePostResponse value) => $_setField(4, value);
   @$pb.TagNumber(4)
-  $core.bool hasLikes() => $_has(3);
+  $core.bool hasPost() => $_has(3);
   @$pb.TagNumber(4)
-  void clearLikes() => $_clearField(4);
+  void clearPost() => $_clearField(4);
   @$pb.TagNumber(4)
-  $4.SubscribeLikesResponse ensureLikes() => $_ensure(3);
+  $3.SubscribePostResponse ensurePost() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  $4.SubscribeLikesResponse get likes => $_getN(4);
+  @$pb.TagNumber(5)
+  set likes($4.SubscribeLikesResponse value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLikes() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLikes() => $_clearField(5);
+  @$pb.TagNumber(5)
+  $4.SubscribeLikesResponse ensureLikes() => $_ensure(4);
 }
 
 class UnsubscribeRequest extends $pb.GeneratedMessage {
