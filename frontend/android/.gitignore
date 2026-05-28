@@ -1,3 +1,7 @@
+# Eclipse / Buildship (local IDE metadata; not part of the Flutter build)
+.classpath
+.settings/
+
 /.gradle
 /captures/
 /gradlew.bat

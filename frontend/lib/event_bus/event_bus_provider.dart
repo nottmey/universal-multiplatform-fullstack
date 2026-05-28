@@ -9,8 +9,10 @@ typedef EventBusConnection = ({Stream<Event> stream, Future<void> established});
 
 const Duration _connectionReadyTimeout = Duration(seconds: 10);
 
-final eventBusProvider = Provider.autoDispose<EventBusConnection>((ref) {
-  final client = ref.watch(eventBusServiceClientProvider);
+final eventBusProvider = FutureProvider.autoDispose<EventBusConnection>((
+  ref,
+) async {
+  final client = await ref.watch(eventBusServiceClientProvider.future);
   final connectionContext = ref.watch(grpcConnectionContextProvider);
   final responseStream = client.eventBus(
     EventBusRequest(context: connectionContext),

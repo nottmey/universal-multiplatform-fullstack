@@ -44,9 +44,12 @@ class LikesRow extends ConsumerWidget {
             Button.icon(
               key: Keys.timelinePostLike,
               tooltip: 'Like',
-              onPressed: () => ref
-                  .read(likesServiceClientProvider)
-                  .like(LikeRequest(postId: postId)),
+              onPressed: () async {
+                final likesServiceClient = await ref.read(
+                  likesServiceClientProvider.future,
+                );
+                await likesServiceClient.like(LikeRequest(postId: postId));
+              },
               icon: const Icon(Icons.favorite_outline),
             ),
           ],

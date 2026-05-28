@@ -6,9 +6,11 @@ import 'package:frontend/grpc/grpc_channel_provider.dart';
 export 'package:frontend/grpc/grpc_connection_context_provider.dart';
 export 'package:frontend/grpc/grpc_connection_epoch_provider.dart';
 
-final eventBusServiceClientProvider = Provider((ref) {
+final eventBusServiceClientProvider = FutureProvider<EventBusServiceClient>((
+  ref,
+) async {
   return EventBusServiceClient(
     ref.watch(grpcChannelProvider),
-    options: ref.watch(grpcCallOptionsProvider),
+    options: await ref.watch(grpcCallOptionsProvider.future),
   );
 });

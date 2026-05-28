@@ -19,7 +19,7 @@ ProviderContainer createEventBusProviderContainer({
         onConfigureChannelOverride?.call(ref);
         return MockClientChannel.empty();
       }),
-      eventBusServiceClientProvider.overrideWith((ref) {
+      eventBusServiceClientProvider.overrideWith((ref) async {
         onConfigureClientOverride?.call(ref);
         return eventBusClientBuilder(ref);
       }),

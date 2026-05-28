@@ -54,9 +54,10 @@ final class PostComposeSubmissionNotifier
     }
     state = const PostComposeSubmissionUi(posting: true);
     try {
-      await ref
-          .read(postServiceClientProvider)
-          .createPost(CreatePostRequest(body: body));
+      final postServiceClient = await ref.read(
+        postServiceClientProvider.future,
+      );
+      await postServiceClient.createPost(CreatePostRequest(body: body));
       ref.read(timelineComposeBodyControllerProvider).clear();
       state = const PostComposeSubmissionUi(posting: false);
     } on Object catch (e) {

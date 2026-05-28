@@ -16,17 +16,11 @@ final eventSubscriptionsProvider = StreamProvider.autoDispose
       final controller = StreamController<Event>();
       ref.onDispose(controller.close);
 
-      final eventBus = ref.watch(eventBusProvider);
-      final subscription = eventBus.stream
-          .where((event) => event.subscriptionId == subscriptionId)
-          .listen(
-            controller.safeAdd,
-            onError: controller.safeAddError,
-            onDone: controller.safeClose,
-          );
-      ref.onDispose(subscription.cancel);
+      final eventBusServiceClientFuture = ref.watch(
+        eventBusServiceClientProvider.future,
+      );
+      final eventBusFuture = ref.watch(eventBusProvider.future);
 
-      final client = ref.watch(eventBusServiceClientProvider);
       final connectionContext = ref.watch(grpcConnectionContextProvider);
       final subscriptionPayload = subscriptionTemplate.clone()
         ..subscriptionId = subscriptionId;
@@ -38,24 +32,40 @@ final eventSubscriptionsProvider = StreamProvider.autoDispose
         context: connectionContext,
         subscriptionId: subscriptionId,
       );
+
+      StreamSubscription<Event>? busSubscription;
+
       unawaited(() async {
         try {
-          await eventBus.established;
-          if (!controller.isClosed) {
-            await client.subscribe(subscribeRpcRequest);
-            if (controller.isClosed) {
-              // controller was closed while we subscribed,
-              // onDispose unsubscribe possible happened before we subscribed,
-              // so we need to trigger another unsubscribe to ensure the subscription is removed
-              await client.unsubscribe(unsubscribeRpcRequest);
+          final eventBus = await eventBusFuture;
+          final client = await eventBusServiceClientFuture;
+          if (ref.mounted) {
+            busSubscription = eventBus.stream
+                .where((event) => event.subscriptionId == subscriptionId)
+                .listen(
+                  controller.safeAdd,
+                  onError: controller.safeAddError,
+                  onDone: controller.safeClose,
+                );
+            ref.onDispose(() => busSubscription?.cancel());
+
+            await eventBus.established;
+            if (ref.mounted && !controller.isClosed) {
+              ref.onDispose(() => client.unsubscribe(unsubscribeRpcRequest));
+              await client.subscribe(subscribeRpcRequest);
+              if (controller.isClosed) {
+                // controller was closed while we subscribed,
+                // onDispose unsubscribe possible happened before we subscribed,
+                // so we need to trigger another unsubscribe to ensure the subscription is removed
+                await client.unsubscribe(unsubscribeRpcRequest);
+              }
             }
           }
         } catch (e, s) {
           controller.safeAddError(e, s);
-          await subscription.cancel();
+          await busSubscription?.cancel();
         }
       }());
-      ref.onDispose(() => client.unsubscribe(unsubscribeRpcRequest));
 
       return controller.stream;
     });

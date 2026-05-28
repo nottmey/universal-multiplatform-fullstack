@@ -30,7 +30,9 @@ MockEventBusServiceClient setupRecordingEventBusClient({
     if (!deferConnectionReady) {
       busController.add(Event(connectionReady: ConnectionReady()));
     }
-    onEventBusStream?.call(busController);
+    if (onEventBusStream != null) {
+      scheduleMicrotask(() => onEventBusStream(busController));
+    }
     return FakeEventBusResponseStream(
       busController.stream,
       onCancel: () => lifecycleTimeline?.add(ClosedBus()),

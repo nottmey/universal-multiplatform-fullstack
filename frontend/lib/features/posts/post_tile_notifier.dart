@@ -142,9 +142,10 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
         isPostMutationInFlight: true,
       );
       try {
-        await ref
-            .read(postServiceClientProvider)
-            .deletePost(DeletePostRequest(postId: postId));
+        final postServiceClient = await ref.read(
+          postServiceClientProvider.future,
+        );
+        await postServiceClient.deletePost(DeletePostRequest(postId: postId));
       } on Object catch (error) {
         state = state.copyWith(
           isAwaitingDeletion: false,
@@ -162,9 +163,12 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
     }
     state = state.copyWith(isPostMutationInFlight: true);
     try {
-      await ref
-          .read(postServiceClientProvider)
-          .editPost(EditPostRequest(postId: postId, body: savedBody));
+      final postServiceClient = await ref.read(
+        postServiceClientProvider.future,
+      );
+      await postServiceClient.editPost(
+        EditPostRequest(postId: postId, body: savedBody),
+      );
     } on Object catch (error) {
       state = state.copyWith(
         isPostMutationInFlight: false,
