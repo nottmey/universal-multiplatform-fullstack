@@ -10,6 +10,7 @@ class SocialExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
+      retry: (_, _) => null,
       child: MaterialApp(
         title: 'Social Example',
         theme: ThemeData(

@@ -26,8 +26,8 @@ void main() {
       await $(Keys.authenticationSignUp).tap();
 
       await $(
-        Keys.timelineRefreshIndicator,
-      ).waitUntilVisible(timeout: const Duration(seconds: 120));
+        Keys.timelineSubscriptionReady,
+      ).waitUntilVisible(timeout: const Duration(seconds: 30));
 
       final initialBody = 'patrol_e2e_$stamp';
       final editedBody = '${initialBody}_edited';
@@ -72,8 +72,8 @@ void main() {
       await $.pump();
 
       await $(
-        Keys.timelineRefreshIndicator,
-      ).waitUntilVisible(timeout: const Duration(seconds: 120));
+        Keys.timelineSubscriptionReady,
+      ).waitUntilVisible(timeout: const Duration(seconds: 30));
 
       await $(
         editedBody,

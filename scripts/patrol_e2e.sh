@@ -67,19 +67,6 @@ fi
 
 [[ "$verbose" == true ]] && echo "$self: auth_emulator_port=$auth_emulator_port grpc_port=$grpc_port" >&2
 
-wait_for_tcp_port() {
-  local port=$1
-  local attempt
-  for attempt in $(seq 1 180); do
-    if tcp_port_open "$port"; then
-      return 0
-    fi
-    sleep 1
-  done
-  echo "$self: timed out waiting for 127.0.0.1:${port}" >&2
-  return 1
-}
-
 back_pid=""
 cleanup() {
   if [[ -n "$back_pid" ]]; then
@@ -126,8 +113,7 @@ fi
 ) &
 back_pid=$!
 
-# TODO: don't wait for port to be open, let the frontend start and re-try the connect
-wait_for_tcp_port "$grpc_port"
+[[ "$verbose" == true ]] && echo "$self: starting Patrol while backend may still be booting" >&2
 
 cd "$root/frontend"
 

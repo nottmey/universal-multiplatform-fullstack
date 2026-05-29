@@ -19,10 +19,17 @@
 - ALWAYS aim to leave code cleaner than you found it, focusing on incremental, high-impact improvements to readability or code health without introducing scope creep.
 - ALWAYS prioritize self-documenting naming to explain what the code does; reserve comments for the why behind non-obvious decisions.
 
+# Architecture principles
+
+- We build a reactive system with server-to-client push, not because we assume that everything needs to be real-time, but to have it as an easy option for any feature. Of course, features can also be called in a unary, non-self-updating way. But unless we have a reason for doing so, we don't need to degrade the UX.
+- Respecting load and back-pressure is an essential part of building a reactive system. We don't want to overwhelm our own or external resources by blindly pushing traffic/data or causing unnecessary traffic or computations.
+- We always want active clients to self-recover in any connection failure scenario. We use health checks, short timeouts, and active retries to recover from partial or full connection failures. We acknowledge that connection failures are complex and messy. The non-existence of an event is hard to detect.
+
 # Project principles
 
 Prioritize **immutability** and a **functional programming** style.
-**Naming:** Never abbreviate identifiers. Types, functions, parameters, variables, enum values, and file names should spell words in full. Exceptions: `e` for caught errors, `i` in classic `for`-loop indices. Booleans read as natural yes/no predicates (e.g. `isX`, `hasY`). Prefer 1-3 distinctive, non-generic words per name.
+**Naming:** Never abbreviate identifiers. Types, functions, parameters, variables, enum values, and file names should spell words in full. Exceptions: `e` for caught errors, `s` for caught stack traces, `i` in classic `for`-loop indices. Booleans read as natural yes/no predicates (e.g. `isX`, `hasY`). Prefer 1-3 distinctive, non-generic words per name.
+**Return Statements:** Avoid mid-function return statements to maintain code readability and scannability. Restrict return statements strictly to the very beginning of a function (as early returns/guard clauses) or to the absolute end of the function.
 **Feature slices:** One feature = one domain. On the JVM keep domain types and Rama/gRPC code under `backend/src/main/java/social/example/features/<name>/` (tests under `backend/src/test/java/.../features/<name>/`). On Flutter keep feature UI and clients under `frontend/lib/features/<name>/`. Shared protos live in `backend/src/main/proto/`; generated Dart stubs live in `frontend/lib/proto/`. Do not spread domain rules across features—import across slices only at boundaries.
 For **Rama** architecture — modules, depots, PStates, paths, stream/microbatch/query topologies — read [`.cursor/skills/rama/SKILL.md`](.cursor/skills/rama/SKILL.md) for design essentials (ACK levels, mirrors, partitioning), then follow official **[Rama documentation](https://redplanetlabs.com/docs/~/index.html)** and **[Rama Javadoc](https://redplanetlabs.com/javadoc/index.html)**. Name types: Rama **inputs** end with `Event` (instances/collections: `event` / `events`); Rama **outputs** end with `View` (`view` / `views`). Types implementing `RamaSerializable` are prefixed with `Rama`.
 For **Armeria** (gRPC, routing) follow official **[Armeria documentation — Running a gRPC service](https://armeria.dev/docs/server/grpc)**.
@@ -30,11 +37,11 @@ For **Patrol** integration tests follow official **[Patrol documentation](https:
 
 # Dart conventions
 
-Prefer **inferring generic type arguments** when the surrounding expression already fixes them. Write explicit type arguments only when inference fails or would widen incorrectly.
-
-Omit redundant **parameter type annotations** on formals—including required or optional positional parameters, named parameters, and **`catch`** parameters—when the assignee or enclosing API **determines** the type. Add explicit parameter types where omission would infer **`dynamic`** or where **strict-inference** (Dart analyzer language mode) or the **`strict_top_level_inference`** lint **requires an explicit type**.
-
-Never use **`final` on formal parameters**. Use **`final`** for locals, fields, and top-level variables.
+- Do not use `export` in implementation files (providers, features, widgets, tests). Import what you use directly; generated `lib/proto/` code is excepted to have exports.
+- Prefer **inferring generic type arguments** when the surrounding expression already fixes them. Write explicit type arguments only when inference fails or would widen incorrectly.
+- Omit redundant **parameter type annotations** on formals—including required or optional positional parameters, named parameters, and **`catch`** parameters—when the assignee or enclosing API **determines** the type. Add explicit parameter types where omission would infer **`dynamic`** or where **strict-inference** (Dart analyzer language mode) or the **`strict_top_level_inference`** lint **requires an explicit type**.
+- Never use **`final` on formal parameters**. Use **`final`** for locals, fields, and top-level variables.
+- Use riverpod providers for dependency injection.
 
 # Java conventions
 

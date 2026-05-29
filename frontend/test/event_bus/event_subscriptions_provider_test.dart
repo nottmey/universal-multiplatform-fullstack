@@ -5,14 +5,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/event_bus/event_bus_provider.dart';
 import 'package:frontend/event_bus/event_subscriptions_provider.dart';
+import 'package:frontend/grpc/grpc_connection_epoch_provider.dart';
+import 'package:frontend/grpc/grpc_offline_retry.dart';
 import 'package:frontend/grpc/grpc_channel_provider.dart';
 import 'package:frontend/proto/event_bus.pbgrpc.dart';
 import 'package:frontend/proto/posts.pb.dart';
+import 'package:frontend/proto/timeline.pb.dart';
 import 'package:grpc/grpc.dart';
 import 'package:protobuf/well_known_types/google/protobuf/empty.pb.dart';
 
+import 'package:fake_async/fake_async.dart';
+
 import 'fixtures/create_event_bus_provider_container.dart';
+import 'fixtures/event_bus_fake_async.dart';
+import 'fixtures/event_bus_provider_harness.dart';
 import 'fixtures/post_subscription_fixture.dart';
 import 'fixtures/recording_lifecycle_event.dart';
 import 'fixtures/register_event_bus_mockito_dummies.dart';
@@ -84,6 +92,50 @@ void main() {
         },
       );
 
+      test('retries subscribe when unavailable then succeeds', () {
+        fakeAsync((async) {
+          var subscribeAttempts = 0;
+          final subscribeCalls = <SubscribeRequest>[];
+          final subscriptionArgument = Subscription(
+            timeline: SubscribeTimelineRequest(),
+          );
+
+          final container = createEventBusProviderContainer(
+            sessionId: 'subscribe-retry-session',
+            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
+              subscribeCalls: subscribeCalls,
+              subscribeResponse: (_) {
+                subscribeAttempts++;
+                if (subscribeAttempts < 2) {
+                  return Future<Empty>.error(GrpcError.unavailable('offline'));
+                }
+                return Future<Empty>.value(Empty());
+              },
+            ),
+          );
+
+          try {
+            final states = <AsyncValue<Event>>[];
+            container.listen(
+              eventSubscriptionsProvider(subscriptionArgument),
+              (_, next) => states.add(next),
+              fireImmediately: true,
+            );
+
+            async.flush();
+            async.pumpUntil(() => subscribeAttempts >= 1);
+            async.elapseOfflineRetryBackoff(failureIndex: 0);
+            async.pumpUntil(() => subscribeAttempts >= 2);
+
+            expect(subscribeAttempts, 2);
+            expect(subscribeCalls, isNotEmpty);
+            expect(states.where((state) => state.hasError), isEmpty);
+          } finally {
+            container.dispose();
+          }
+        });
+      });
+
       test(
         'exposes GrpcError when EventBus never becomes ready without subscribing',
         () async {
@@ -92,7 +144,7 @@ void main() {
           final subscriptionArgument = Subscription(
             post: SubscribePostRequest(postId: 'connection-not-ready'),
           );
-          const handshakeFailure = GrpcError.unavailable(
+          const handshakeFailure = GrpcError.failedPrecondition(
             'EventBus handshake failed',
           );
 
@@ -129,58 +181,86 @@ void main() {
         },
       );
 
-      test('exposes GrpcError when EventBus stream fails after data', () async {
-        final subscribeCalls = <SubscribeRequest>[];
-        final unsubscribeCalls = <UnsubscribeRequest>[];
-        StreamController<Event>? busController;
-        final subscriptionArgument = Subscription(
-          post: SubscribePostRequest(postId: 'bus-error-post'),
-        );
-        const busStreamFailure = GrpcError.unavailable(
-          'event bus stream failed',
-        );
+      test(
+        'recovers after EventBus stream fails without surfacing subscription error',
+        () {
+          fakeAsync((async) {
+            var eventBusOpenCount = 0;
+            StreamController<Event>? latestBusController;
+            final subscribeCalls = <SubscribeRequest>[];
+            final subscriptionArgument = Subscription(
+              timeline: SubscribeTimelineRequest(),
+            );
 
-        final container = createEventBusProviderContainer(
-          sessionId: 'bus-error-session',
-          eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-            subscribeCalls: subscribeCalls,
-            unsubscribeCalls: unsubscribeCalls,
-            onEventBusStream: (controller) => busController = controller,
-          ),
-        );
-        addTearDown(container.dispose);
+            final container = createEventBusProviderContainer(
+              sessionId: 'bus-recovery-session',
+              eventBusClientBuilder: (_) => setupRecordingEventBusClient(
+                subscribeCalls: subscribeCalls,
+                onEventBusStream: (controller) {
+                  eventBusOpenCount++;
+                  latestBusController = controller;
+                },
+              ),
+            );
 
-        final states = <AsyncValue<Event>>[];
-        container.listen(
-          eventSubscriptionsProvider(subscriptionArgument),
-          (_, next) => states.add(next),
-          fireImmediately: true,
-        );
+            try {
+              container.listen(
+                eventBusProvider,
+                (_, _) {},
+                fireImmediately: true,
+              );
 
-        await Future<void>.delayed(Duration.zero);
-        final correlationId = subscribeCalls.single.subscription.subscriptionId;
-        busController!.add(
-          Event(
-            subscriptionId: correlationId,
-            post: SubscribePostResponse(
-              post: Post(postId: 'bus-error-post', body: 'before-error'),
-            ),
-          ),
-        );
-        await Future<void>.delayed(Duration.zero);
-        expect(states.any((state) => state.hasValue), isTrue);
+              final states = <AsyncValue<Event>>[];
+              container.listen(
+                eventSubscriptionsProvider(subscriptionArgument),
+                (_, next) => states.add(next),
+                fireImmediately: true,
+              );
 
-        busController!.addError(busStreamFailure);
-        await Future<void>.delayed(Duration.zero);
-        await Future<void>.delayed(Duration.zero);
+              async.flush();
+              expect(eventBusOpenCount, 1);
 
-        expect(unsubscribeCalls, isEmpty);
-        expectLastAsyncGrpcError(
-          states,
-          code: busStreamFailure.code,
-          message: 'event bus stream failed',
-        );
-      });
+              final firstCorrelationId =
+                  subscribeCalls.single.subscription.subscriptionId;
+              latestBusController!.add(
+                timelineEvent(
+                  postIds: ['before-failure'],
+                  subscriptionId: firstCorrelationId,
+                ),
+              );
+              async.flush();
+              expect(states.where((state) => state.hasValue), isNotEmpty);
+              expect(states.where((state) => state.hasError), isEmpty);
+
+              latestBusController!.addError(
+                GrpcError.unavailable('event bus stream failed'),
+              );
+              async.drainPendingAsyncWork();
+              async.elapseOfflineRetryBackoff(failureIndex: 0);
+              async.drainPendingAsyncWork();
+              async.pumpUntil(() => eventBusOpenCount > 1);
+
+              expect(states.where((state) => state.hasError), isEmpty);
+              expect(subscribeCalls.length, greaterThan(1));
+
+              final recoveredCorrelationId =
+                  subscribeCalls.last.subscription.subscriptionId;
+              latestBusController!.add(
+                timelineEvent(
+                  postIds: ['after-recovery'],
+                  subscriptionId: recoveredCorrelationId,
+                ),
+              );
+              async.flush();
+
+              expect(states.last.hasValue, isTrue);
+              expect(states.last.value!.timeline.postIds, ['after-recovery']);
+            } finally {
+              container.dispose();
+            }
+          });
+        },
+      );
     });
 
     group('subscription cases', () {
@@ -344,6 +424,97 @@ void main() {
     });
 
     group('dispose cases', () {
+      test(
+        'does not surface RetryLoopAborted when disposed during subscribe retries',
+        () {
+          fakeAsync((async) {
+            var subscribeAttempts = 0;
+            final subscriptionArgument = Subscription(
+              timeline: SubscribeTimelineRequest(),
+            );
+
+            final container = createEventBusProviderContainer(
+              sessionId: 'dispose-during-subscribe-session',
+              eventBusClientBuilder: (_) => setupRecordingEventBusClient(
+                subscribeResponse: (_) {
+                  subscribeAttempts++;
+                  return Future<Empty>.error(GrpcError.unavailable('offline'));
+                },
+              ),
+            );
+
+            try {
+              container.listen(
+                eventBusProvider,
+                (_, _) {},
+                fireImmediately: true,
+              );
+
+              final states = <AsyncValue<Event>>[];
+              final providerSubscription = container.listen(
+                eventSubscriptionsProvider(subscriptionArgument),
+                (_, next) => states.add(next),
+                fireImmediately: true,
+              );
+
+              async.flush();
+              expect(subscribeAttempts, 1);
+
+              providerSubscription.close();
+              async.elapseOfflineRetryDelays(failureCount: boundedRetryCount);
+
+              expect(states.where((state) => state.hasError), isEmpty);
+            } finally {
+              container.dispose();
+            }
+          });
+        },
+      );
+
+      test('retries unsubscribe when unavailable then succeeds', () {
+        fakeAsync((async) {
+          var unsubscribeAttempts = 0;
+          final unsubscribeCalls = <UnsubscribeRequest>[];
+          final subscriptionArgument = Subscription(
+            timeline: SubscribeTimelineRequest(),
+          );
+
+          final container = createEventBusProviderContainer(
+            sessionId: 'unsubscribe-retry-session',
+            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
+              unsubscribeCalls: unsubscribeCalls,
+              unsubscribeResponse: (_) {
+                unsubscribeAttempts++;
+                if (unsubscribeAttempts < 2) {
+                  return Future<Empty>.error(GrpcError.unavailable('offline'));
+                }
+                return Future<Empty>.value(Empty());
+              },
+            ),
+          );
+
+          try {
+            final subscription = container.listen(
+              eventSubscriptionsProvider(subscriptionArgument),
+              (_, _) {},
+              fireImmediately: true,
+            );
+            async.flush();
+            async.pumpUntil(() => unsubscribeAttempts == 0);
+            subscription.close();
+            async.flush();
+            async.pumpUntil(() => unsubscribeAttempts >= 1);
+            async.elapseOfflineRetryBackoff(failureIndex: 0);
+            async.pumpUntil(() => unsubscribeAttempts >= 2);
+
+            expect(unsubscribeAttempts, 2);
+            expect(unsubscribeCalls, isNotEmpty);
+          } finally {
+            container.dispose();
+          }
+        });
+      });
+
       testWidgets(
         'cancels EventBus and unsubscribes when last subscription is removed',
         (WidgetTester tester) async {

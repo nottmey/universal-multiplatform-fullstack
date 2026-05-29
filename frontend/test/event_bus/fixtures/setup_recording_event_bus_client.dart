@@ -16,6 +16,7 @@ MockEventBusServiceClient setupRecordingEventBusClient({
   void Function(StreamController<Event> busController)? onEventBusStream,
   bool deferConnectionReady = false,
   Future<Empty> Function(SubscribeRequest request)? subscribeResponse,
+  Future<Empty> Function(UnsubscribeRequest request)? unsubscribeResponse,
 }) {
   final client = MockEventBusServiceClient();
 
@@ -54,10 +55,11 @@ MockEventBusServiceClient setupRecordingEventBusClient({
     invocation,
   ) {
     lifecycleTimeline?.add(Unsubscribed());
-    unsubscribeCalls?.add(
-      invocation.positionalArguments.first as UnsubscribeRequest,
-    );
-    return ImmediateUnaryResponseFuture(Future<Empty>.value(Empty()));
+    final request = invocation.positionalArguments.first as UnsubscribeRequest;
+    unsubscribeCalls?.add(request);
+    final response =
+        unsubscribeResponse?.call(request) ?? Future<Empty>.value(Empty());
+    return ImmediateUnaryResponseFuture(response);
   });
 
   return client;

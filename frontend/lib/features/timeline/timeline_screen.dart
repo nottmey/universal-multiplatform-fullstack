@@ -64,33 +64,36 @@ class TimelineScreen extends ConsumerWidget {
                   )
                 : !feed.feedReady
                 ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    key: Keys.timelineRefreshIndicator,
-                    onRefresh: ref.onForceRefresh,
-                    child: feed.postIds.isEmpty
-                        ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: const [
-                              SizedBox(height: 120),
-                              Center(
-                                child: Text(
-                                  'No posts yet',
-                                  key: Keys.timelineEmptyFeed,
+                : KeyedSubtree(
+                    key: Keys.timelineSubscriptionReady,
+                    child: RefreshIndicator(
+                      key: Keys.timelineRefreshIndicator,
+                      onRefresh: ref.onForceRefresh,
+                      child: feed.postIds.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: const [
+                                SizedBox(height: 120),
+                                Center(
+                                  child: Text(
+                                    'No posts yet',
+                                    key: Keys.timelineEmptyFeed,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          )
-                        : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            itemCount: feed.postIds.length,
-                            itemBuilder: (context, index) {
-                              final postId = feed.postIds[index];
-                              return PostTimelineTile(
-                                key: ValueKey(postId),
-                                postId: postId,
-                              );
-                            },
-                          ),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: feed.postIds.length,
+                              itemBuilder: (context, index) {
+                                final postId = feed.postIds[index];
+                                return PostTimelineTile(
+                                  key: ValueKey(postId),
+                                  postId: postId,
+                                );
+                              },
+                            ),
+                    ),
                   ),
           ),
         ],

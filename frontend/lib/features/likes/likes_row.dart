@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/components/button.dart';
 import 'package:frontend/event_bus/event_subscriptions_provider.dart';
 import 'package:frontend/features/likes/likes_service_client_provider.dart';
+import 'package:frontend/grpc/grpc_connection_epoch_provider.dart';
 import 'package:frontend/proto/event_bus.pbgrpc.dart';
 import 'package:frontend/proto/likes.pbgrpc.dart';
 import 'package:frontend/keys.dart';
