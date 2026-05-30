@@ -9,7 +9,7 @@ import 'package:frontend/features/posts/post_editor_result.dart';
 import 'package:frontend/features/posts/post_service_client_provider.dart';
 import 'package:frontend/proto/event_bus.pbgrpc.dart';
 import 'package:frontend/proto/posts.pb.dart';
-import 'package:frontend/grpc_user_message.dart';
+import 'package:frontend/utils/error_message.dart';
 
 @immutable
 final class PostTileUi {
@@ -105,7 +105,7 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
           },
           error: (error, _) {
             state = state.copyWith(
-              subscriptionErrorMessage: grpcUserFacingMessage(error),
+              subscriptionErrorMessage: errorMessage(error),
               isLoadingPostPayload: false,
             );
           },
@@ -150,7 +150,7 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
         state = state.copyWith(
           isAwaitingDeletion: false,
           isPostMutationInFlight: false,
-          transientErrorMessage: grpcUserFacingMessage(error),
+          transientErrorMessage: errorMessage(error),
         );
         return;
       }
@@ -172,7 +172,7 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
     } on Object catch (error) {
       state = state.copyWith(
         isPostMutationInFlight: false,
-        transientErrorMessage: grpcUserFacingMessage(error),
+        transientErrorMessage: errorMessage(error),
       );
       return;
     }

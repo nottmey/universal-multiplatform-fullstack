@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/event_bus/event_subscriptions_provider.dart';
 import 'package:frontend/proto/event_bus.pbgrpc.dart';
 import 'package:frontend/proto/timeline.pb.dart';
-import 'package:frontend/grpc_user_message.dart';
+import 'package:frontend/utils/error_message.dart';
 
 @immutable
 final class TimelineFeedUi {
@@ -54,7 +54,7 @@ final class TimelineFeedNotifier extends Notifier<TimelineFeedUi> {
             state = TimelineFeedUi(
               feedReady: false,
               postIds: const <String>[],
-              subscriptionErrorMessage: grpcUserFacingMessage(error),
+              subscriptionErrorMessage: errorMessage(error),
             );
           },
           loading: () {

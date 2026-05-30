@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:frontend/proto/posts.pbgrpc.dart';
-import 'package:frontend/grpc_user_message.dart';
+import 'package:frontend/utils/error_message.dart';
 import 'package:frontend/features/posts/post_service_client_provider.dart';
 
 final timelineComposeBodyControllerProvider = Provider<TextEditingController>((
@@ -63,7 +63,7 @@ final class PostComposeSubmissionNotifier
     } on Object catch (e) {
       state = PostComposeSubmissionUi(
         posting: false,
-        submitError: grpcUserFacingMessage(e),
+        submitError: errorMessage(e),
       );
     }
   }
