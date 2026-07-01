@@ -25,8 +25,9 @@ import social.example.eventbus.grpc.EventBusRequest;
 import social.example.eventbus.grpc.SubscribeRequest;
 import social.example.eventbus.grpc.Subscription;
 import social.example.eventbus.grpc.UnsubscribeRequest;
-import social.example.features.likes.grpc.SubscribeLikesRequest;
-import social.example.features.likes.grpc.SubscribeLikesResponse;
+import social.example.features.posts.grpc.Post;
+import social.example.features.posts.grpc.SubscribePostRequest;
+import social.example.features.posts.grpc.SubscribePostResponse;
 import social.example.features.timeline.grpc.SubscribeTimelineRequest;
 import social.example.features.timeline.grpc.SubscribeTimelineResponse;
 
@@ -123,12 +124,12 @@ class EventBusLifecycleTest {
   }
 
   @Test
-  void subscribeRpc_addsLikesSubscriptionOnActiveSession() throws Exception {
-    val likesStub =
+  void subscribeRpc_addsPostSubscriptionOnActiveSession() throws Exception {
+    val postStub =
         new EventBusSubscription() {
           @Override
           public Subscription.RequestCase subscriptionCase() {
-            return Subscription.RequestCase.LIKES;
+            return Subscription.RequestCase.POST;
           }
 
           @Override
@@ -137,19 +138,21 @@ class EventBusLifecycleTest {
             session.emit(
                 Event.newBuilder()
                     .setSubscriptionId(subscription.getSubscriptionId())
-                    .setLikes(
-                        SubscribeLikesResponse.newBuilder()
-                            .setPostId(subscription.getLikes().getPostId())
-                            .setLikeCount(7L)
+                    .setPost(
+                        SubscribePostResponse.newBuilder()
+                            .setPost(
+                                Post.newBuilder()
+                                    .setPostId(subscription.getPost().getPostId())
+                                    .build())
                             .build())
                     .build());
             return () -> {};
           }
         };
-    try (InProcessEventBus grpc = new InProcessEventBus(List.of(likesStub))) {
-      val likesSubscriptionId = UUID.randomUUID().toString();
+    try (InProcessEventBus grpc = new InProcessEventBus(List.of(postStub))) {
+      val postSubscriptionId = UUID.randomUUID().toString();
       val postId = "post-for-subscribe-rpc";
-      val gotLikesEvent = new CountDownLatch(1);
+      val gotPostEvent = new CountDownLatch(1);
       val error = new AtomicReference<String>();
       grpc.asyncStub()
           .eventBus(
@@ -157,10 +160,10 @@ class EventBusLifecycleTest {
               new StreamObserver<Event>() {
                 @Override
                 public void onNext(final Event event) {
-                  if (likesSubscriptionId.equals(event.getSubscriptionId())
-                      && event.hasLikes()
-                      && event.getLikes().getLikeCount() == 7L) {
-                    gotLikesEvent.countDown();
+                  if (postSubscriptionId.equals(event.getSubscriptionId())
+                      && event.hasPost()
+                      && event.getPost().getPost().getPostId().equals(postId)) {
+                    gotPostEvent.countDown();
                   }
                 }
 
@@ -178,11 +181,11 @@ class EventBusLifecycleTest {
                   .setContext(context("test", 0))
                   .setSubscription(
                       Subscription.newBuilder()
-                          .setSubscriptionId(likesSubscriptionId)
-                          .setLikes(SubscribeLikesRequest.newBuilder().setPostId(postId).build())
+                          .setSubscriptionId(postSubscriptionId)
+                          .setPost(SubscribePostRequest.newBuilder().setPostId(postId).build())
                           .build())
                   .build());
-      awaitLatch(gotLikesEvent, error, STREAM_TIMEOUT_SECONDS);
+      awaitLatch(gotPostEvent, error, STREAM_TIMEOUT_SECONDS);
     }
   }
 
@@ -191,11 +194,11 @@ class EventBusLifecycleTest {
     val firstClosed = new AtomicBoolean(false);
     val secondClosed = new AtomicBoolean(false);
     val subscribeOrdinal = new AtomicInteger(0);
-    val likesStub =
+    val postStub =
         new EventBusSubscription() {
           @Override
           public Subscription.RequestCase subscriptionCase() {
-            return Subscription.RequestCase.LIKES;
+            return Subscription.RequestCase.POST;
           }
 
           @Override
@@ -211,57 +214,57 @@ class EventBusLifecycleTest {
             };
           }
         };
-    try (InProcessEventBus grpc = new InProcessEventBus(List.of(likesStub))) {
-      val likesSubscriptionId = UUID.randomUUID().toString();
+    try (InProcessEventBus grpc = new InProcessEventBus(List.of(postStub))) {
+      val postSubscriptionId = UUID.randomUUID().toString();
       val error = new AtomicReference<String>();
       grpc.asyncStub()
           .eventBus(
               EventBusRequest.newBuilder().setContext(context("test", 0)).build(),
               InProcessEventBus.discardingEventObserver(error));
-      val likesRequest =
+      val postRequest =
           SubscribeRequest.newBuilder()
               .setContext(context("test", 0))
               .setSubscription(
                   Subscription.newBuilder()
-                      .setSubscriptionId(likesSubscriptionId)
-                      .setLikes(
-                          SubscribeLikesRequest.newBuilder()
+                      .setSubscriptionId(postSubscriptionId)
+                      .setPost(
+                          SubscribePostRequest.newBuilder()
                               .setPostId("post-double-subscribe")
                               .build())
                       .build())
               .build();
-      grpc.blockingStub().subscribe(likesRequest);
+      grpc.blockingStub().subscribe(postRequest);
       assertFalse(firstClosed.get());
-      grpc.blockingStub().subscribe(likesRequest);
+      grpc.blockingStub().subscribe(postRequest);
       assertTrue(firstClosed.get());
       assertFalse(secondClosed.get());
       grpc.blockingStub()
           .unsubscribe(
               UnsubscribeRequest.newBuilder()
                   .setContext(context("test", 0))
-                  .setSubscriptionId(likesSubscriptionId)
+                  .setSubscriptionId(postSubscriptionId)
                   .build());
     }
   }
 
   @Test
-  void unsubscribeRpc_closesLikesSubscription() throws Exception {
-    val likesClosed = new AtomicBoolean(false);
-    val likesStub =
+  void unsubscribeRpc_closesPostSubscription() throws Exception {
+    val postClosed = new AtomicBoolean(false);
+    val postStub =
         new EventBusSubscription() {
           @Override
           public Subscription.RequestCase subscriptionCase() {
-            return Subscription.RequestCase.LIKES;
+            return Subscription.RequestCase.POST;
           }
 
           @Override
           public AutoCloseable subscribe(
               final EventBusSession session, final Subscription subscription) {
-            return () -> likesClosed.set(true);
+            return () -> postClosed.set(true);
           }
         };
-    try (InProcessEventBus grpc = new InProcessEventBus(List.of(likesStub))) {
-      val likesSubscriptionId = UUID.randomUUID().toString();
+    try (InProcessEventBus grpc = new InProcessEventBus(List.of(postStub))) {
+      val postSubscriptionId = UUID.randomUUID().toString();
       val error = new AtomicReference<String>();
       grpc.asyncStub()
           .eventBus(
@@ -273,30 +276,30 @@ class EventBusLifecycleTest {
                   .setContext(context("test", 0))
                   .setSubscription(
                       Subscription.newBuilder()
-                          .setSubscriptionId(likesSubscriptionId)
-                          .setLikes(SubscribeLikesRequest.newBuilder().setPostId("any").build())
+                          .setSubscriptionId(postSubscriptionId)
+                          .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
                           .build())
                   .build());
       assertFalse(
-          likesClosed.get(), () -> error.get() != null ? error.get() : "timeout (no stream error)");
+          postClosed.get(), () -> error.get() != null ? error.get() : "timeout (no stream error)");
       grpc.blockingStub()
           .unsubscribe(
               UnsubscribeRequest.newBuilder()
                   .setContext(context("test", 0))
-                  .setSubscriptionId(likesSubscriptionId)
+                  .setSubscriptionId(postSubscriptionId)
                   .build());
-      assertTrue(likesClosed.get());
+      assertTrue(postClosed.get());
     }
   }
 
   @Test
   void eventBus_higherEpochClosesOlderSession() throws Exception {
     val firstEpochClosed = new CountDownLatch(1);
-    val likesStub =
+    val postStub =
         new EventBusSubscription() {
           @Override
           public Subscription.RequestCase subscriptionCase() {
-            return Subscription.RequestCase.LIKES;
+            return Subscription.RequestCase.POST;
           }
 
           @Override
@@ -305,7 +308,7 @@ class EventBusLifecycleTest {
             return firstEpochClosed::countDown;
           }
         };
-    try (InProcessEventBus grpc = new InProcessEventBus(List.of(likesStub))) {
+    try (InProcessEventBus grpc = new InProcessEventBus(List.of(postStub))) {
       val sessionId = "shared-session-id";
       val firstContext = context(sessionId, 0);
       val secondContext = context(sessionId, 1);
@@ -321,7 +324,7 @@ class EventBusLifecycleTest {
                   .setSubscription(
                       Subscription.newBuilder()
                           .setSubscriptionId(UUID.randomUUID().toString())
-                          .setLikes(SubscribeLikesRequest.newBuilder().setPostId("any").build())
+                          .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
                           .build())
                   .build());
       grpc.asyncStub()
@@ -352,7 +355,7 @@ class EventBusLifecycleTest {
                   .setSubscription(
                       Subscription.newBuilder()
                           .setSubscriptionId(UUID.randomUUID().toString())
-                          .setLikes(SubscribeLikesRequest.newBuilder().setPostId("any").build())
+                          .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
                           .build())
                   .build());
     }
@@ -381,8 +384,8 @@ class EventBusLifecycleTest {
                               .setSubscription(
                                   Subscription.newBuilder()
                                       .setSubscriptionId(UUID.randomUUID().toString())
-                                      .setLikes(
-                                          SubscribeLikesRequest.newBuilder()
+                                      .setPost(
+                                          SubscribePostRequest.newBuilder()
                                               .setPostId("any")
                                               .build())
                                       .build())

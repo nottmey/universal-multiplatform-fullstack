@@ -16,7 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import social.example.eventbus.grpc.EventBusRequest;
 import social.example.eventbus.grpc.Subscription;
-import social.example.features.likes.grpc.SubscribeLikesRequest;
+import social.example.features.posts.grpc.SubscribePostRequest;
 import social.example.features.timeline.grpc.SubscribeTimelineRequest;
 
 class EventBusInputValidationTest {
@@ -31,7 +31,7 @@ class EventBusInputValidationTest {
                       context("test", 0),
                       Subscription.newBuilder()
                           .setSubscriptionId(UUID.randomUUID().toString())
-                          .setLikes(SubscribeLikesRequest.newBuilder().setPostId("orphan").build())
+                          .setPost(SubscribePostRequest.newBuilder().setPostId("orphan").build())
                           .build()));
       assertEquals(Status.Code.FAILED_PRECONDITION, thrown.getStatus().getCode());
     }
@@ -57,7 +57,7 @@ class EventBusInputValidationTest {
                   context,
                   Subscription.newBuilder()
                       .setSubscriptionId(subscriptionId)
-                      .setLikes(SubscribeLikesRequest.newBuilder().setPostId("any").build())
+                      .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
                       .build()),
           "subscription_id is required");
     }
@@ -148,7 +148,7 @@ class EventBusInputValidationTest {
                   context(sessionId, 0),
                   Subscription.newBuilder()
                       .setSubscriptionId(UUID.randomUUID().toString())
-                      .setLikes(SubscribeLikesRequest.newBuilder().setPostId("any").build())
+                      .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
                       .build()),
           "connection context id is required");
     }
@@ -164,7 +164,7 @@ class EventBusInputValidationTest {
                   context("test", -1),
                   Subscription.newBuilder()
                       .setSubscriptionId(UUID.randomUUID().toString())
-                      .setLikes(SubscribeLikesRequest.newBuilder().setPostId("any").build())
+                      .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
                       .build()),
           "connection context epoch must be non-negative");
     }

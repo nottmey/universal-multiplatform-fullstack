@@ -45,27 +45,6 @@ void main() {
 
       await $(editedBody).waitUntilVisible();
 
-      await $(
-        find.descendant(
-          of: find.ancestor(
-            of: find.text(editedBody),
-            matching: find.byType(ListTile),
-          ),
-          matching: find.byKey(Keys.timelinePostLike),
-        ),
-      ).tap(settlePolicy: SettlePolicy.noSettle);
-      await $.pump(const Duration(milliseconds: 500));
-      expect(
-        find.descendant(
-          of: find.ancestor(
-            of: find.text(editedBody),
-            matching: find.byType(ListTile),
-          ),
-          matching: find.text('1'),
-        ),
-        findsOneWidget,
-      );
-
       await $.pumpWidget(const SizedBox.shrink());
       await $.pump();
       await $.pumpWidget(const SocialExampleApp());
@@ -79,20 +58,6 @@ void main() {
         editedBody,
       ).waitUntilVisible(timeout: const Duration(seconds: 120));
       expect(find.byKey(Keys.timelinePostPayloadLoading), findsNothing);
-      final editedPostListTile = find.ancestor(
-        of: find.text(editedBody),
-        matching: find.byType(ListTile),
-      );
-      await $(
-        find.descendant(
-          of: editedPostListTile,
-          matching: find.byKey(Keys.timelinePostLike),
-        ),
-      ).waitUntilVisible(timeout: const Duration(seconds: 120));
-      expect(
-        find.descendant(of: editedPostListTile, matching: find.text('1')),
-        findsOneWidget,
-      );
 
       await $(
         Keys.timelineAppBarRefresh,
@@ -100,19 +65,9 @@ void main() {
       await $(
         editedBody,
       ).waitUntilVisible(timeout: const Duration(seconds: 60));
-      await $(
-        find.descendant(
-          of: editedPostListTile,
-          matching: find.byKey(Keys.timelinePostLike),
-        ),
-      ).waitUntilVisible(timeout: const Duration(seconds: 120));
       await $.pumpAndSettle();
 
       expect(find.text(editedBody), findsOneWidget);
-      expect(
-        find.descendant(of: editedPostListTile, matching: find.text('1')),
-        findsOneWidget,
-      );
 
       await $(editedBody).tap();
       await $(Keys.timelinePostEditorTitle).waitUntilVisible();
@@ -124,7 +79,6 @@ void main() {
         Keys.timelineEmptyFeed,
       ).waitUntilVisible(timeout: const Duration(seconds: 60));
       expect(find.text(editedBody), findsNothing);
-      expect(find.byKey(Keys.timelinePostLike), findsNothing);
 
       await $(Keys.authenticationSignOut).tap();
       await $(Keys.authenticationEmail).waitUntilVisible();

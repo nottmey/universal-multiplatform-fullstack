@@ -11,7 +11,6 @@ class Keys {
   static const Key timelinePostEditorTitle = Key('timeline_post_editor_title');
   static const Key timelinePostEditorSave = Key('timeline_post_editor_save');
   static const Key timelineDeleteConfirm = Key('timeline_delete_confirm');
-  static const Key timelinePostLike = Key('timeline_post_like');
   static const Key timelinePostPayloadLoading = Key(
     'timeline_post_payload_loading',
   );

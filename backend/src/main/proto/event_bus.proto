@@ -8,7 +8,6 @@ option java_multiple_files = true;
 
 import "google/protobuf/empty.proto";
 import "timeline.proto";
-import "likes.proto";
 import "posts.proto";
 
 service EventBusService {
@@ -37,7 +36,6 @@ message Subscription {
     // skipping 2, to align numbering with Event.response
     social.example.features.timeline.grpc.SubscribeTimelineRequest timeline = 3;
     social.example.features.posts.grpc.SubscribePostRequest post = 4;
-    social.example.features.likes.grpc.SubscribeLikesRequest likes = 5;
   }
 }
 
@@ -50,7 +48,6 @@ message Event {
     ConnectionReady connection_ready = 2;
     social.example.features.timeline.grpc.SubscribeTimelineResponse timeline = 3;
     social.example.features.posts.grpc.SubscribePostResponse post = 4;
-    social.example.features.likes.grpc.SubscribeLikesResponse likes = 5;
   }
 }
 

@@ -102,15 +102,6 @@ const Subscription$json = {
       '9': 0,
       '10': 'post'
     },
-    {
-      '1': 'likes',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.social.example.features.likes.grpc.SubscribeLikesRequest',
-      '9': 0,
-      '10': 'likes'
-    },
   ],
   '8': [
     {'1': 'request'},
@@ -123,8 +114,7 @@ final $typed_data.Uint8List subscriptionDescriptor = $convert.base64Decode(
     'JdCgh0aW1lbGluZRgDIAEoCzI/LnNvY2lhbC5leGFtcGxlLmZlYXR1cmVzLnRpbWVsaW5lLmdy'
     'cGMuU3Vic2NyaWJlVGltZWxpbmVSZXF1ZXN0SABSCHRpbWVsaW5lEk4KBHBvc3QYBCABKAsyOC'
     '5zb2NpYWwuZXhhbXBsZS5mZWF0dXJlcy5wb3N0cy5ncnBjLlN1YnNjcmliZVBvc3RSZXF1ZXN0'
-    'SABSBHBvc3QSUQoFbGlrZXMYBSABKAsyOS5zb2NpYWwuZXhhbXBsZS5mZWF0dXJlcy5saWtlcy'
-    '5ncnBjLlN1YnNjcmliZUxpa2VzUmVxdWVzdEgAUgVsaWtlc0IJCgdyZXF1ZXN0');
+    'SABSBHBvc3RCCQoHcmVxdWVzdA==');
 
 @$core.Deprecated('Use connectionReadyDescriptor instead')
 const ConnectionReady$json = {
@@ -167,15 +157,6 @@ const Event$json = {
       '9': 0,
       '10': 'post'
     },
-    {
-      '1': 'likes',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.social.example.features.likes.grpc.SubscribeLikesResponse',
-      '9': 0,
-      '10': 'likes'
-    },
   ],
   '8': [
     {'1': 'response'},
@@ -189,9 +170,7 @@ final $typed_data.Uint8List eventDescriptor = $convert.base64Decode(
     'Y3Rpb25SZWFkeUgAUg9jb25uZWN0aW9uUmVhZHkSXgoIdGltZWxpbmUYAyABKAsyQC5zb2NpYW'
     'wuZXhhbXBsZS5mZWF0dXJlcy50aW1lbGluZS5ncnBjLlN1YnNjcmliZVRpbWVsaW5lUmVzcG9u'
     'c2VIAFIIdGltZWxpbmUSTwoEcG9zdBgEIAEoCzI5LnNvY2lhbC5leGFtcGxlLmZlYXR1cmVzLn'
-    'Bvc3RzLmdycGMuU3Vic2NyaWJlUG9zdFJlc3BvbnNlSABSBHBvc3QSUgoFbGlrZXMYBSABKAsy'
-    'Oi5zb2NpYWwuZXhhbXBsZS5mZWF0dXJlcy5saWtlcy5ncnBjLlN1YnNjcmliZUxpa2VzUmVzcG'
-    '9uc2VIAFIFbGlrZXNCCgoIcmVzcG9uc2U=');
+    'Bvc3RzLmdycGMuU3Vic2NyaWJlUG9zdFJlc3BvbnNlSABSBHBvc3RCCgoIcmVzcG9uc2U=');
 
 @$core.Deprecated('Use unsubscribeRequestDescriptor instead')
 const UnsubscribeRequest$json = {

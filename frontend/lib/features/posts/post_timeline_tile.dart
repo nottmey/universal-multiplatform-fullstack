@@ -4,7 +4,6 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:frontend/features/likes/likes_row.dart';
 import 'package:frontend/features/posts/post_tile_notifier.dart';
 import 'package:frontend/grpc/grpc_connection_epoch_provider.dart';
 import 'package:frontend/keys.dart';
@@ -92,7 +91,6 @@ class PostTimelineTile extends ConsumerWidget {
       subtitle: Text(
         'id=${post.postId} · ${_formatPostTimestampMillis(post.postedAtMillis)}',
       ),
-      trailing: LikesRow(postId: post.postId),
     );
   }
 }
