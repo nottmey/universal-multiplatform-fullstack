@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:frontend/api/api_offline_retry.dart';
 import 'package:frontend/auth/authentication_gate.dart';
 import 'package:frontend/features/timeline/timeline_screen.dart';
 
@@ -10,7 +11,9 @@ class SocialExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
-      retry: (_, _) => null,
+      // Retry transient/offline provider failures (notably the EventBus
+      // socket) with jittered backoff; logic errors surface immediately.
+      retry: offlineUnboundedRetryDelay,
       child: MaterialApp(
         title: 'Social Example',
         theme: ThemeData(

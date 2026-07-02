@@ -1,17 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:client/api.dart' show ApiException;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/grpc/grpc_offline_retry.dart';
-import 'package:grpc/grpc.dart';
+import 'package:frontend/api/api_errors.dart';
+import 'package:frontend/api/api_offline_retry.dart';
 import 'package:http/http.dart' show ClientException;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 void main() {
   group('isOfflineFailure', () {
-    test('returns true for unavailable GrpcError', () {
-      expect(isOfflineFailure(GrpcError.unavailable('offline')), isTrue);
-    });
-
     test('returns true for TimeoutException', () {
       expect(isOfflineFailure(TimeoutException('timed out')), isTrue);
     });
@@ -27,21 +25,43 @@ void main() {
       expect(isOfflineFailure(ClientException('transport failed')), isTrue);
     });
 
-    test('returns false for failedPrecondition GrpcError', () {
+    test('returns true for WebSocketChannelException', () {
+      expect(
+        isOfflineFailure(WebSocketChannelException('socket down')),
+        isTrue,
+      );
+    });
+
+    test('returns true for EventBusUnavailableException', () {
       expect(
         isOfflineFailure(
-          GrpcError.failedPrecondition('no active EventBus stream'),
+          const EventBusUnavailableException('closed before ready'),
         ),
+        isTrue,
+      );
+    });
+
+    test('returns true for 503/502/504 ApiException', () {
+      expect(isOfflineFailure(const ApiException(503, 'unavailable')), isTrue);
+      expect(isOfflineFailure(const ApiException(502, 'bad gateway')), isTrue);
+      expect(isOfflineFailure(const ApiException(504, 'timeout')), isTrue);
+    });
+
+    test('returns false for 4xx ApiException', () {
+      expect(isOfflineFailure(const ApiException(400, 'bad request')), isFalse);
+      expect(
+        isOfflineFailure(const ApiException(401, 'unauthenticated')),
         isFalse,
       );
     });
 
-    test('returns false for unknown GrpcError', () {
-      expect(isOfflineFailure(GrpcError.unknown('bug')), isFalse);
-    });
-
-    test('returns true for deadlineExceeded GrpcError', () {
-      expect(isOfflineFailure(GrpcError.deadlineExceeded('slow')), isTrue);
+    test('returns false for structured ApiErrorException', () {
+      expect(
+        isOfflineFailure(
+          const ApiErrorException(code: 'INVALID_ARGUMENT', message: 'nope'),
+        ),
+        isFalse,
+      );
     });
   });
 
@@ -70,13 +90,28 @@ void main() {
         operation: () async {
           attempts++;
           if (attempts < 3) {
-            throw GrpcError.unavailable('offline');
+            throw const SocketException('offline');
           }
           return 'ok';
         },
       );
       expect(result, 'ok');
       expect(attempts, 3);
+    });
+
+    test('rethrows non-offline errors immediately', () async {
+      var attempts = 0;
+      await expectLater(
+        offlineBoundedRetryLoop(
+          shouldContinue: () => true,
+          operation: () async {
+            attempts++;
+            throw const ApiException(400, 'bad request');
+          },
+        ),
+        throwsA(isA<ApiException>()),
+      );
+      expect(attempts, 1);
     });
 
     test('rethrows after exhausting bounded delays', () async {
@@ -86,10 +121,10 @@ void main() {
           shouldContinue: () => true,
           operation: () async {
             attempts++;
-            throw GrpcError.unavailable('offline');
+            throw const SocketException('offline');
           },
         ),
-        throwsA(isA<GrpcError>()),
+        throwsA(isA<SocketException>()),
       );
       expect(attempts, boundedRetryCount + 1);
     });
@@ -104,7 +139,7 @@ void main() {
           operation: () async {
             attempts++;
             mayContinue = false;
-            throw GrpcError.unavailable('offline');
+            throw const SocketException('offline');
           },
         ),
         throwsA(isA<RetryLoopAborted>()),
@@ -130,17 +165,14 @@ void main() {
   group('offlineUnboundedRetryDelay', () {
     test('returns null for non-offline errors', () {
       expect(
-        offlineUnboundedRetryDelay(
-          0,
-          GrpcError.failedPrecondition('logic error'),
-        ),
+        offlineUnboundedRetryDelay(0, const ApiException(400, 'logic error')),
         isNull,
       );
     });
 
     test('returns delay for offline errors', () {
       expect(
-        offlineUnboundedRetryDelay(0, GrpcError.unavailable('offline')),
+        offlineUnboundedRetryDelay(0, const SocketException('offline')),
         isNotNull,
       );
     });

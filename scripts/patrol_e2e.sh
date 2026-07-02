@@ -5,7 +5,7 @@
 set -euo pipefail
 
 readonly auth_emulator_port=9099
-readonly grpc_port=8080
+readonly api_port=8080
 
 self=""
 self=$(basename "$0")
@@ -65,7 +65,7 @@ if ! tcp_port_open "$auth_emulator_port"; then
   exit 1
 fi
 
-[[ "$verbose" == true ]] && echo "$self: auth_emulator_port=$auth_emulator_port grpc_port=$grpc_port" >&2
+[[ "$verbose" == true ]] && echo "$self: auth_emulator_port=$auth_emulator_port api_port=$api_port" >&2
 
 back_pid=""
 cleanup() {
@@ -89,7 +89,7 @@ esac
 
 patrol_dart_defines=(
   --dart-define=AUTH_EMULATOR_PORT="${auth_emulator_port}"
-  --dart-define=GRPC_PORT="${grpc_port}"
+  --dart-define=API_PORT="${api_port}"
 )
 
 patrol_common=(

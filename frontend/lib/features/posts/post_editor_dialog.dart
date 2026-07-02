@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:frontend/proto/posts.pb.dart';
+import 'package:client/api.dart';
 import 'package:frontend/keys.dart';
 
 import 'post_editor_result.dart';

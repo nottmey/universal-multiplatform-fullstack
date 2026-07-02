@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/auth/authentication_sign_out.dart';
 import 'package:frontend/features/posts/post_compose_bar.dart';
 import 'package:frontend/features/posts/post_timeline_tile.dart';
+import 'package:frontend/event_bus/event_bus_force_refresh.dart';
 import 'package:frontend/features/timeline/timeline_feed_notifier.dart';
-import 'package:frontend/grpc/grpc_connection_epoch_provider.dart';
 import 'package:frontend/keys.dart';
 
 class TimelineScreen extends ConsumerWidget {

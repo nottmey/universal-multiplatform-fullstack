@@ -1,84 +1,57 @@
 import 'dart:async';
 
+import 'package:client/api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/api/api_errors.dart';
 import 'package:frontend/event_bus/event_bus_provider.dart';
-import 'package:frontend/event_bus/event_bus_service_client_provider.dart';
-import 'package:frontend/grpc/grpc_call_options_provider.dart';
-import 'package:frontend/grpc/grpc_connection_context_provider.dart';
-import 'package:frontend/grpc/grpc_offline_retry.dart';
-import 'package:frontend/proto/event_bus.pbgrpc.dart';
-import 'package:grpc/grpc.dart';
+import 'package:frontend/event_bus/subscription_spec.dart';
 import 'package:uuid/uuid.dart';
 
+/// One event stream per [SubscriptionSpec]: opens (via the shared EventBus
+/// connection) a subscription with a fresh id, relays matching server
+/// messages, and unsubscribes on dispose.
+///
+/// Subscribe/unsubscribe are fire-and-forget socket frames. There is no
+/// per-frame retry: a lost connection tears down [eventBusProvider], which
+/// rebuilds this provider (it watches the bus) and re-sends. Rejected
+/// subscribes come back as an `error` envelope and surface as a stream error.
 final eventSubscriptionsProvider = StreamProvider.autoDispose
-    .family<Event, Subscription>((ref, subscriptionTemplate) {
+    .family<EventBusServerMessage, SubscriptionSpec>((ref, spec) {
       final subscriptionId = const Uuid().v4();
 
-      final controller = StreamController<Event>();
+      final controller = StreamController<EventBusServerMessage>();
       ref.onDispose(controller.close);
 
-      final eventBusServiceClientFuture = ref.watch(
-        eventBusServiceClientProvider.future,
-      );
-      final grpcCallOptionsFuture = ref.watch(grpcCallOptionsProvider.future);
-      final eventBusFuture = ref.watch(eventBusProvider.future);
+      final connectionFuture = ref.watch(eventBusProvider.future);
 
-      final connectionContext = ref.watch(grpcConnectionContextProvider);
-      final connectionAttemptTimeout = ref.watch(
-        grpcConnectionAttemptTimeoutProvider,
-      );
-      final subscriptionPayload = subscriptionTemplate.clone()
-        ..subscriptionId = subscriptionId;
-      final subscribeRpcRequest = SubscribeRequest(
-        context: connectionContext,
-        subscription: subscriptionPayload,
-      );
-      final unsubscribeRpcRequest = UnsubscribeRequest(
-        context: connectionContext,
-        subscriptionId: subscriptionId,
-      );
-
-      StreamSubscription<Event>? busSubscription;
+      StreamSubscription<EventBusServerMessage>? busSubscription;
 
       unawaited(() async {
         try {
-          final eventBusStream = await eventBusFuture;
-          final client = await eventBusServiceClientFuture;
-          final grpcCallOptions = await grpcCallOptionsFuture;
-          final callOptionsWithConnectionAttemptTimeout = grpcCallOptions
-              .mergedWith(CallOptions(timeout: connectionAttemptTimeout));
-          Future<void> unsubscribeWithRetry() => offlineBoundedRetryLoop(
-            shouldContinue: () => true,
-            operation: () => client.unsubscribe(
-              unsubscribeRpcRequest,
-              options: callOptionsWithConnectionAttemptTimeout,
-            ),
-          );
-          if (ref.mounted) {
-            busSubscription = eventBusStream
-                .where((event) => event.subscriptionId == subscriptionId)
-                .listen(controller.safeAdd, onError: (_) {});
-            ref.onDispose(() => busSubscription?.cancel());
-
-            if (ref.mounted && !controller.isClosed) {
-              ref.onDispose(() => unsubscribeWithRetry().ignore());
-              await offlineBoundedRetryLoop(
-                shouldContinue: () => ref.mounted,
-                operation: () => client.subscribe(
-                  subscribeRpcRequest,
-                  options: callOptionsWithConnectionAttemptTimeout,
-                ),
-              );
-              if (controller.isClosed) {
-                // controller was closed while we subscribed,
-                // onDispose unsubscribe possible happened before we subscribed,
-                // so we need to trigger another unsubscribe to ensure the subscription is removed
-                await unsubscribeWithRetry();
-              }
-            }
+          final connection = await connectionFuture;
+          if (!ref.mounted || controller.isClosed) {
+            return;
           }
-        } on RetryLoopAborted {
-          await busSubscription?.cancel();
+          busSubscription = connection.events
+              .where((event) => event.subscriptionId == subscriptionId)
+              .listen((event) {
+                final error = event.error;
+                if (error != null) {
+                  controller.safeAddError(
+                    ApiErrorException.fromApiError(error),
+                  );
+                } else {
+                  controller.safeAdd(event);
+                }
+              }, onError: (_) {});
+          ref.onDispose(() {
+            busSubscription?.cancel();
+            _sendUnsubscribe(connection, subscriptionId);
+          });
+
+          connection.send(
+            EventBusClientMessage(subscribe: spec.toCommand(subscriptionId)),
+          );
         } catch (e, s) {
           controller.safeAddError(e, s);
           await busSubscription?.cancel();
@@ -88,6 +61,20 @@ final eventSubscriptionsProvider = StreamProvider.autoDispose
       return controller.stream;
     });
 
+/// Best-effort unsubscribe; the socket may already be gone (which itself drops
+/// the server-side subscription), so failures are ignored.
+void _sendUnsubscribe(EventBusConnection connection, String subscriptionId) {
+  try {
+    connection.send(
+      EventBusClientMessage(
+        unsubscribe: UnsubscribeCommand(subscriptionId: subscriptionId),
+      ),
+    );
+  } on Object {
+    // Socket closed; nothing to clean up.
+  }
+}
+
 extension<T> on StreamController<T> {
   void safeAdd(T event) {
     if (!isClosed) {
@@ -95,7 +82,7 @@ extension<T> on StreamController<T> {
     }
   }
 
-  void safeAddError(Object e, StackTrace s) {
+  void safeAddError(Object e, [StackTrace? s]) {
     if (!isClosed) {
       addError(e, s);
     }

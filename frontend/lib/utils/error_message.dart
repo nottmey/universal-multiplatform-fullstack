@@ -1,8 +1,10 @@
-import 'package:grpc/grpc_or_grpcweb.dart';
+import 'package:client/api.dart' show ApiException;
+import 'package:frontend/api/api_errors.dart';
 
 String errorMessage(Object error) {
-  if (error is GrpcError) {
-    return '${error.codeName} (${error.code}): ${error.message}';
-  }
-  return error.toString();
+  return switch (error) {
+    ApiErrorException(:final code, :final message) => '$code: $message',
+    ApiException(:final code, :final message) => '$code: ${message ?? ''}',
+    _ => error.toString(),
+  };
 }

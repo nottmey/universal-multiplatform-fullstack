@@ -2,20 +2,23 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:client/api.dart' show ApiException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:grpc/grpc.dart';
+import 'package:frontend/api/api_errors.dart';
 import 'package:http/http.dart' show ClientException;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
-const Duration _grpcConnectionAttemptTimeout = Duration(seconds: 5);
+const Duration _apiRequestTimeout = Duration(seconds: 5);
 
-/// Per-RPC attempt timeout for subscribe, unsubscribe, and similar unary calls.
-final grpcConnectionAttemptTimeoutProvider = Provider<Duration>(
-  (ref) => _grpcConnectionAttemptTimeout,
+/// Per-request attempt timeout for REST calls and WebSocket subscribe frames.
+final apiRequestTimeoutProvider = Provider<Duration>(
+  (ref) => _apiRequestTimeout,
 );
 
-/// How long to wait for `connection_ready` on the EventBus stream before retrying.
+/// How long to wait for the connectionReady handshake on the EventBus socket
+/// before retrying.
 final eventBusHandshakeTimeoutProvider = Provider<Duration>(
-  (ref) => _grpcConnectionAttemptTimeout,
+  (ref) => _apiRequestTimeout,
 );
 
 const int boundedRetryCount = 5;
@@ -24,14 +27,19 @@ const Duration _retryInitialDelay = Duration(milliseconds: 500);
 const Duration _retryMaxDelay = Duration(seconds: 16);
 const double _retryJitterFraction = 0.2;
 
+/// HTTP statuses that signal a transient/offline server condition and are
+/// safe to retry (bad gateway, service unavailable, gateway timeout).
+const Set<int> _offlineHttpStatuses = {502, 503, 504};
+
 bool isOfflineFailure(Object e) {
   return switch (e) {
     TimeoutException() ||
     SocketException() ||
     IOException() ||
-    ClientException() => true,
-    GrpcError(:final code) =>
-      code == StatusCode.unavailable || code == StatusCode.deadlineExceeded,
+    ClientException() ||
+    WebSocketChannelException() ||
+    EventBusUnavailableException() => true,
+    ApiException(:final code) => _offlineHttpStatuses.contains(code),
     _ => false,
   };
 }

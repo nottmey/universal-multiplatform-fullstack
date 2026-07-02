@@ -1,500 +1,221 @@
 import 'dart:async';
 
-import 'package:fake_async/fake_async.dart';
-import 'package:fixnum/fixnum.dart';
+import 'package:client/api.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/grpc/grpc_connection_epoch_provider.dart';
-import 'package:frontend/proto/event_bus.pbgrpc.dart';
-import 'package:grpc/grpc.dart';
+import 'package:frontend/api/api_errors.dart';
+import 'package:frontend/event_bus/event_bus_provider.dart';
 
-import 'fixtures/create_event_bus_provider_container.dart';
-import 'fixtures/event_bus_fake_async.dart';
-import 'fixtures/event_bus_provider_harness.dart';
-import 'fixtures/offline_event_bus_attempts.dart';
-import 'fixtures/recording_lifecycle_event.dart';
-import 'fixtures/register_event_bus_mockito_dummies.dart';
-import 'fixtures/setup_recording_event_bus_client.dart';
+import 'fixtures/event_bus_test_container.dart';
+import 'fixtures/fake_event_bus_socket.dart';
+
+EventBusServerMessage timelineEvent(
+  List<String> postIds, {
+  String subscriptionId = 'timeline',
+}) {
+  return EventBusServerMessage(
+    subscriptionId: subscriptionId,
+    timeline: TimelineEvent(postIds: postIds),
+  );
+}
 
 void main() {
-  setUpAll(registerEventBusMockitoDummies);
-
-  group('eventBusProvider', () {
-    group('success cases', () {
-      test(
-        'returns stream after connection_ready and delivers events to listeners',
-        () async {
-          StreamController<Event>? busController;
-
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'success-session',
-            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-              onEventBusStream: (controller) => busController = controller,
-            ),
-          );
-
-          final busStream = await harness.readBusStream();
-          final receivedEvents = await listenForTimelineEvents(
-            busStream: busStream,
-            busController: busController!,
-            postIds: ['post-a'],
-          );
-
-          expect(receivedEvents, hasLength(1));
-          expect(receivedEvents.single.timeline.postIds, ['post-a']);
+  test(
+    'returns a connection after connectionReady and delivers events',
+    () async {
+      late FakeEventBusSocket socket;
+      final container = createEventBusTestContainer(
+        socketBuilder: (_) => FakeEventBusSocket(),
+        onConnect: (_, s) {
+          socket = s;
+          s.emitConnectionReady();
         },
       );
-    });
+      addTearDown(container.dispose);
 
-    group('error cases', () {
-      void expectEventBusConnectsAfterOfflineFailures({
-        required FakeAsync async,
-        required EventBusProviderHarness harness,
-        required OfflineEventBusAttemptTracker attemptTracker,
-        required int failuresBeforeSuccess,
-      }) {
-        async.waitForEventBusAfterOfflineFailures(
-          connect: () => harness.readBusStream(),
-          failuresBeforeSuccess: failuresBeforeSuccess,
-          readAttempts: () => attemptTracker.attempts,
-        );
-        async.expectStableEventBusAttempts(
-          expectedAttempts: failuresBeforeSuccess + 1,
-          readAttempts: () => attemptTracker.attempts,
-        );
-      }
+      final connection = await container.read(eventBusProvider.future);
+      final received = <EventBusServerMessage>[];
+      final sub = connection.events.listen(received.add);
+      socket.emit(timelineEvent(['a', 'b']));
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
 
-      test('retries when eventBus RPC throws offline until success', () {
-        fakeAsync((async) {
-          final attemptTracker = OfflineEventBusAttemptTracker();
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'rpc-offline-session',
-            registerCloseOnTearDown: false,
-            eventBusClientBuilder: (_) => setupOfflineEventBusAttemptsClient(
-              successOnAttempt: defaultOfflineFailuresBeforeSuccess + 1,
-              failureMode: OfflineEventBusFailureMode.rpcThrowsUnavailable,
-              tracker: attemptTracker,
-            ),
-          );
+      expect(received, [
+        timelineEvent(['a', 'b']),
+      ]);
+    },
+  );
 
-          try {
-            expectEventBusConnectsAfterOfflineFailures(
-              async: async,
-              harness: harness,
-              attemptTracker: attemptTracker,
-              failuresBeforeSuccess: defaultOfflineFailuresBeforeSuccess,
-            );
+  test('sends client frames over the socket', () async {
+    late FakeEventBusSocket socket;
+    final container = createEventBusTestContainer(
+      socketBuilder: (_) => FakeEventBusSocket(),
+      onConnect: (_, s) {
+        socket = s;
+        s.emitConnectionReady();
+      },
+    );
+    addTearDown(container.dispose);
 
-            final receivedEvents = <Event>[];
-            late final Stream<Event> busStream;
-            var busStreamReady = false;
-            unawaited(
-              harness.readBusStream().then((stream) {
-                busStream = stream;
-                busStreamReady = true;
-              }),
-            );
-            async.pumpUntil(() => busStreamReady);
-            final listener = busStream.listen(receivedEvents.add);
-            attemptTracker.busController!.add(
-              timelineEvent(postIds: ['after-retry']),
-            );
-            async.flush();
-            expect(receivedEvents, hasLength(1));
-            expect(receivedEvents.single.timeline.postIds, ['after-retry']);
-            listener.cancel();
-          } finally {
-            harness.close();
-          }
-        });
-      });
+    final connection = await container.read(eventBusProvider.future);
+    connection.send(
+      EventBusClientMessage(
+        subscribe: SubscribeCommand(
+          subscriptionId: 'id',
+          timeline: const TimelineSubscriptionRequest(),
+        ),
+      ),
+    );
 
-      test('retries when offline error arrives before connection_ready', () {
-        fakeAsync((async) {
-          final attemptTracker = OfflineEventBusAttemptTracker();
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'pre-ready-error-session',
-            registerCloseOnTearDown: false,
-            eventBusClientBuilder: (_) => setupOfflineEventBusAttemptsClient(
-              successOnAttempt: defaultOfflineFailuresBeforeSuccess + 1,
-              failureMode: OfflineEventBusFailureMode.streamErrorBeforeReady,
-              tracker: attemptTracker,
-            ),
-          );
-
-          try {
-            expectEventBusConnectsAfterOfflineFailures(
-              async: async,
-              harness: harness,
-              attemptTracker: attemptTracker,
-              failuresBeforeSuccess: defaultOfflineFailuresBeforeSuccess,
-            );
-          } finally {
-            harness.close();
-          }
-        });
-      });
-
-      test('retries when stream closes before connection_ready', () {
-        fakeAsync((async) {
-          final attemptTracker = OfflineEventBusAttemptTracker();
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'pre-ready-close-session',
-            registerCloseOnTearDown: false,
-            eventBusClientBuilder: (_) => setupOfflineEventBusAttemptsClient(
-              successOnAttempt: defaultOfflineFailuresBeforeSuccess + 1,
-              failureMode: OfflineEventBusFailureMode.streamCloseBeforeReady,
-              tracker: attemptTracker,
-            ),
-          );
-
-          try {
-            expectEventBusConnectsAfterOfflineFailures(
-              async: async,
-              harness: harness,
-              attemptTracker: attemptTracker,
-              failuresBeforeSuccess: defaultOfflineFailuresBeforeSuccess,
-            );
-          } finally {
-            harness.close();
-          }
-        });
-      });
-
-      test('retries when connection_ready times out until ready arrives', () {
-        fakeAsync((async) {
-          final attemptTracker = OfflineEventBusAttemptTracker();
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'ready-timeout-session',
-            registerCloseOnTearDown: false,
-            eventBusClientBuilder: (_) => setupOfflineEventBusAttemptsClient(
-              successOnAttempt: defaultOfflineFailuresBeforeSuccess + 1,
-              failureMode:
-                  OfflineEventBusFailureMode.readyDeferredUntilSuccessAttempt,
-              tracker: attemptTracker,
-            ),
-          );
-
-          try {
-            expectEventBusConnectsAfterOfflineFailures(
-              async: async,
-              harness: harness,
-              attemptTracker: attemptTracker,
-              failuresBeforeSuccess: defaultOfflineFailuresBeforeSuccess,
-            );
-          } finally {
-            harness.close();
-          }
-        });
-      });
-
-      test(
-        'retries when eventBusHandshakeTimeout fires before connection_ready',
-        () {
-          fakeAsync((async) {
-            const failuresBeforeSuccess = 1;
-            final attemptTracker = OfflineEventBusAttemptTracker();
-            final harness = createEventBusHarness(
-              addTearDown,
-              sessionId: 'handshake-timeout-session',
-              registerCloseOnTearDown: false,
-              eventBusClientBuilder: (_) => setupOfflineEventBusAttemptsClient(
-                successOnAttempt: failuresBeforeSuccess + 1,
-                failureMode:
-                    OfflineEventBusFailureMode.readyDeferredUntilSuccessAttempt,
-                tracker: attemptTracker,
-              ),
-            );
-
-            try {
-              expectEventBusConnectsAfterOfflineFailures(
-                async: async,
-                harness: harness,
-                attemptTracker: attemptTracker,
-                failuresBeforeSuccess: failuresBeforeSuccess,
-              );
-            } finally {
-              harness.close();
-            }
-          });
-        },
-      );
-
-      test('surfaces non-offline errors without retrying', () async {
-        final harness = createEventBusHarness(
-          addTearDown,
-          sessionId: 'auth-session',
-          eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-            deferConnectionReady: true,
-            onEventBusStream: (controller) {
-              controller.addError(GrpcError.unauthenticated('bad token'));
-            },
-          ),
-        );
-
-        await expectLater(
-          harness.readBusStream(),
-          throwsA(
-            isA<GrpcError>().having(
-              (error) => error.code,
-              'code',
-              StatusCode.unauthenticated,
-            ),
-          ),
-        );
-      });
-    });
-
-    group('reconnection cases', () {
-      test(
-        'invalidates and reconnects after mid-session stream failure then delivers events',
-        () async {
-          var eventBusAttempts = 0;
-          StreamController<Event>? latestBusController;
-          final receivedEvents = <Event>[];
-
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'mid-session-recovery',
-            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-              onEventBusStream: (controller) {
-                eventBusAttempts++;
-                latestBusController = controller;
-                controller.add(Event(connectionReady: ConnectionReady()));
-              },
-            ),
-          );
-
-          final firstBusStream = await harness.readBusStream();
-          final firstSubscription = firstBusStream.listen(
-            receivedEvents.add,
-            onError: (_) {},
-          );
-          addTearDown(firstSubscription.cancel);
-
-          latestBusController!.add(timelineEvent(postIds: ['before-failure']));
-          await pumpEventBusMicrotasks();
-          expect(receivedEvents.single.timeline.postIds, ['before-failure']);
-
-          receivedEvents.clear();
-          latestBusController!.addError(GrpcError.unavailable('mid-session'));
-          await pumpEventBusMicrotasks();
-
-          expect(eventBusAttempts, greaterThan(1));
-
-          final recoveredBusStream = await harness.readBusStream();
-          final recoveredSubscription = recoveredBusStream.listen(
-            receivedEvents.add,
-            onError: (_) {},
-          );
-          addTearDown(recoveredSubscription.cancel);
-
-          latestBusController!.add(timelineEvent(postIds: ['after-recovery']));
-          await pumpEventBusMicrotasks();
-
-          expect(receivedEvents.single.timeline.postIds, ['after-recovery']);
-        },
-      );
-    });
-
-    group('dispose cases', () {
-      test(
-        'cancels in-flight connection when provider is disposed before ready',
-        () async {
-          final lifecycleTimeline = <RecordingLifecycleEvent>[];
-
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'dispose-before-ready',
-            registerCloseOnTearDown: false,
-            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-              lifecycleTimeline: lifecycleTimeline,
-              deferConnectionReady: true,
-            ),
-          );
-
-          await Future<void>.delayed(Duration.zero);
-          harness.closeProviderSubscription();
-          harness.close();
-
-          expect(lifecycleTimeline.whereType<OpenedBus>(), hasLength(1));
-          expect(lifecycleTimeline.whereType<ClosedBus>(), hasLength(1));
-        },
-      );
-
-      test(
-        'cancels when disposed before the provider future completes',
-        () async {
-          final lifecycleTimeline = <RecordingLifecycleEvent>[];
-          final readyGate = Completer<void>();
-
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'dispose-before-complete',
-            registerCloseOnTearDown: false,
-            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-              lifecycleTimeline: lifecycleTimeline,
-              deferConnectionReady: true,
-              onEventBusStream: (controller) {
-                unawaited(
-                  readyGate.future.then((_) {
-                    controller.add(Event(connectionReady: ConnectionReady()));
-                  }),
-                );
-              },
-            ),
-          );
-
-          await Future<void>.delayed(Duration.zero);
-          harness.closeProviderSubscription();
-          harness.close();
-
-          expect(lifecycleTimeline.whereType<OpenedBus>(), hasLength(1));
-          expect(lifecycleTimeline.whereType<ClosedBus>(), hasLength(1));
-        },
-      );
-
-      test('closes bus stream when no longer watched', () async {
-        final lifecycleTimeline = <RecordingLifecycleEvent>[];
-
-        final harness = createEventBusHarness(
-          addTearDown,
-          sessionId: 'unwatch-session',
-          registerCloseOnTearDown: false,
-          eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-            lifecycleTimeline: lifecycleTimeline,
-          ),
-        );
-
-        await harness.readBusStream();
-        harness.closeProviderSubscription();
-        await pumpEventBusMicrotasks();
-        harness.close();
-
-        expect(lifecycleTimeline.whereType<ClosedBus>(), isNotEmpty);
-      });
-    });
-
-    group('dependency refresh cases', () {
-      test('re-establishes stream when EventBus client is recreated', () async {
-        final lifecycleTimeline = <RecordingLifecycleEvent>[];
-        final eventBusRequests = <EventBusRequest>[];
-
-        final harness = createEventBusHarness(
-          addTearDown,
-          sessionId: 'client-bump-session',
-          eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-            lifecycleTimeline: lifecycleTimeline,
-            eventBusRequests: eventBusRequests,
-          ),
-        );
-
-        await harness.readBusStream();
-        expect(eventBusRequests, hasLength(1));
-
-        final closedBeforeBump = lifecycleTimeline
-            .whereType<ClosedBus>()
-            .length;
-
-        harness.container
-            .read(eventBusClientGenerationProvider.notifier)
-            .state++;
-        await pumpEventBusMicrotasks();
-        await harness.readBusStream();
-
-        expect(eventBusRequests, hasLength(2));
-        expect(
-          lifecycleTimeline.whereType<ClosedBus>().length,
-          greaterThan(closedBeforeBump),
-        );
-        expect(eventBusRequests.last.context.id, 'client-bump-session');
-      });
-
-      test(
-        're-establishes stream when connection context epoch changes',
-        () async {
-          final lifecycleTimeline = <RecordingLifecycleEvent>[];
-          final eventBusRequests = <EventBusRequest>[];
-
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'epoch-bump-session',
-            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-              lifecycleTimeline: lifecycleTimeline,
-              eventBusRequests: eventBusRequests,
-            ),
-          );
-
-          await harness.readBusStream();
-          expect(eventBusRequests.single.context.epoch, Int64(0));
-
-          final closedBeforeBump = lifecycleTimeline
-              .whereType<ClosedBus>()
-              .length;
-
-          harness.container
-              .read(grpcConnectionEpochProvider.notifier)
-              .bumpEpoch();
-          await pumpEventBusMicrotasks();
-          await harness.readBusStream();
-
-          expect(eventBusRequests, hasLength(2));
-          expect(eventBusRequests.last.context.epoch, Int64(1));
-          expect(eventBusRequests.last.context.id, 'epoch-bump-session');
-          expect(
-            lifecycleTimeline.whereType<ClosedBus>().length,
-            greaterThan(closedBeforeBump),
-          );
-        },
-      );
-    });
-
-    group('broadcast cases', () {
-      test(
-        'keeps delivering to other listeners when one listener is cancelled',
-        () async {
-          StreamController<Event>? busController;
-
-          final harness = createEventBusHarness(
-            addTearDown,
-            sessionId: 'broadcast-session',
-            eventBusClientBuilder: (_) => setupRecordingEventBusClient(
-              onEventBusStream: (controller) => busController = controller,
-            ),
-          );
-
-          final busStream = await harness.readBusStream();
-          final firstListenerEvents = <Event>[];
-          final secondListenerEvents = <Event>[];
-
-          final firstListener = busStream.listen(firstListenerEvents.add);
-          final secondListener = busStream.listen(secondListenerEvents.add);
-
-          busController!.add(timelineEvent(postIds: ['shared']));
-          await pumpEventBusMicrotasks();
-          expect(firstListenerEvents, hasLength(1));
-          expect(secondListenerEvents, hasLength(1));
-
-          await firstListener.cancel();
-          firstListenerEvents.clear();
-          secondListenerEvents.clear();
-
-          busController!.add(timelineEvent(postIds: ['after-cancel']));
-          await pumpEventBusMicrotasks();
-
-          expect(firstListenerEvents, isEmpty);
-          expect(secondListenerEvents, hasLength(1));
-          expect(secondListenerEvents.single.timeline.postIds, [
-            'after-cancel',
-          ]);
-
-          await secondListener.cancel();
-        },
-      );
-    });
+    expect(socket.sentMessages, hasLength(1));
+    expect(socket.sentMessages.single.subscribe?.subscriptionId, 'id');
   });
+
+  test(
+    'throws EventBusUnavailableException when socket closes before ready',
+    () async {
+      final container = createEventBusTestContainer(
+        socketBuilder: (_) => FakeEventBusSocket(),
+        onConnect: (_, s) => s.endStream(),
+      );
+      addTearDown(container.dispose);
+
+      await expectLater(
+        container.read(eventBusProvider.future),
+        throwsA(isA<EventBusUnavailableException>()),
+      );
+    },
+  );
+
+  test('surfaces a socket error that arrives before ready', () async {
+    final container = createEventBusTestContainer(
+      socketBuilder: (_) => FakeEventBusSocket(),
+      onConnect: (_, s) => s.emitError(
+        const ApiErrorException(code: 'UNAUTHENTICATED', message: 'no'),
+      ),
+    );
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(eventBusProvider.future),
+      throwsA(isA<ApiErrorException>()),
+    );
+  });
+
+  test('times out when connectionReady never arrives', () async {
+    final container = createEventBusTestContainer(
+      socketBuilder: (_) => FakeEventBusSocket(),
+    );
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(eventBusProvider.future),
+      throwsA(isA<TimeoutException>()),
+    );
+  });
+
+  test('throws a StateError when there is no id token', () async {
+    final container = createEventBusTestContainer(
+      socketBuilder: (_) => FakeEventBusSocket(),
+      idToken: null,
+    );
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(eventBusProvider.future),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('propagates connect-time offline failures to the caller', () async {
+    final container = createEventBusTestContainer(
+      socketBuilder: (_) => FakeEventBusSocket(),
+      connectThrows: (_) =>
+          const EventBusUnavailableException('offline at connect'),
+    );
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(eventBusProvider.future),
+      throwsA(isA<EventBusUnavailableException>()),
+    );
+  });
+
+  test('closes the socket when the provider is disposed', () async {
+    late FakeEventBusSocket socket;
+    final container = createEventBusTestContainer(
+      socketBuilder: (_) => FakeEventBusSocket(),
+      onConnect: (_, s) {
+        socket = s;
+        s.emitConnectionReady();
+      },
+    );
+
+    await container.read(eventBusProvider.future);
+    container.dispose();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(socket.closed, isTrue);
+  });
+
+  test('invalidates and reconnects after a mid-session socket close', () async {
+    final sockets = <FakeEventBusSocket>[];
+    final container = createEventBusTestContainer(
+      socketBuilder: (_) => FakeEventBusSocket(),
+      onConnect: (_, s) {
+        sockets.add(s);
+        s.emitConnectionReady();
+      },
+    );
+    addTearDown(container.dispose);
+
+    // Keep the provider alive so invalidateSelf triggers a rebuild.
+    final sub = container.listen(eventBusProvider, (_, _) {});
+    addTearDown(sub.close);
+
+    await container.read(eventBusProvider.future);
+    expect(sockets, hasLength(1));
+
+    sockets.first.endStream();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await container.read(eventBusProvider.future);
+
+    expect(sockets, hasLength(2));
+  });
+
+  test(
+    'keeps delivering to other listeners when one cancels (broadcast)',
+    () async {
+      late FakeEventBusSocket socket;
+      final container = createEventBusTestContainer(
+        socketBuilder: (_) => FakeEventBusSocket(),
+        onConnect: (_, s) {
+          socket = s;
+          s.emitConnectionReady();
+        },
+      );
+      addTearDown(container.dispose);
+
+      final connection = await container.read(eventBusProvider.future);
+      final firstReceived = <EventBusServerMessage>[];
+      final secondReceived = <EventBusServerMessage>[];
+      final first = connection.events.listen(firstReceived.add);
+      final second = connection.events.listen(secondReceived.add);
+
+      socket.emit(timelineEvent(['a']));
+      await Future<void>.delayed(Duration.zero);
+      await first.cancel();
+
+      socket.emit(timelineEvent(['a', 'b']));
+      await Future<void>.delayed(Duration.zero);
+      await second.cancel();
+
+      expect(firstReceived, [
+        timelineEvent(['a']),
+      ]);
+      expect(secondReceived, [
+        timelineEvent(['a']),
+        timelineEvent(['a', 'b']),
+      ]);
+    },
+  );
 }

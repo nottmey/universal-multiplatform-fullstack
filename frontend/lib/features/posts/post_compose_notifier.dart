@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:frontend/proto/posts.pbgrpc.dart';
+import 'package:client/api.dart';
 import 'package:frontend/utils/error_message.dart';
-import 'package:frontend/features/posts/post_service_client_provider.dart';
+import 'package:frontend/features/posts/posts_api_provider.dart';
 
 final timelineComposeBodyControllerProvider = Provider<TextEditingController>((
   ref,
@@ -54,10 +54,8 @@ final class PostComposeSubmissionNotifier
     }
     state = const PostComposeSubmissionUi(posting: true);
     try {
-      final postServiceClient = await ref.read(
-        postServiceClientProvider.future,
-      );
-      await postServiceClient.createPost(CreatePostRequest(body: body));
+      final postsApi = await ref.read(postsApiProvider.future);
+      await postsApi.createPost(CreatePostRequest(body: body));
       ref.read(timelineComposeBodyControllerProvider).clear();
       state = const PostComposeSubmissionUi(posting: false);
     } on Object catch (e) {

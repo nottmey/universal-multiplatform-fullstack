@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:client/api.dart';
 import 'package:frontend/event_bus/event_subscriptions_provider.dart';
+import 'package:frontend/event_bus/subscription_spec.dart';
 import 'package:frontend/features/posts/post_editor_dialog.dart';
 import 'package:frontend/features/posts/post_editor_result.dart';
-import 'package:frontend/features/posts/post_service_client_provider.dart';
-import 'package:frontend/proto/event_bus.pbgrpc.dart';
-import 'package:frontend/proto/posts.pb.dart';
+import 'package:frontend/features/posts/posts_api_provider.dart';
 import 'package:frontend/utils/error_message.dart';
 
 @immutable
@@ -70,13 +70,11 @@ final postTileProvider = NotifierProvider.family
 
 final class PostTileNotifier extends Notifier<PostTileUi> {
   PostTileNotifier(this.postId)
-    : _eventSubscriptionArgument = Subscription(
-        post: SubscribePostRequest(postId: postId),
-      );
+    : _eventSubscriptionArgument = PostSubscriptionSpec(postId);
 
   final String postId;
 
-  final Subscription _eventSubscriptionArgument;
+  final PostSubscriptionSpec _eventSubscriptionArgument;
 
   @override
   PostTileUi build() {
@@ -85,11 +83,11 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
       (_, next) {
         next.when(
           data: (event) {
-            if (!event.hasPost()) {
+            final payload = event.post;
+            if (payload == null) {
               return;
             }
-            final payload = event.post;
-            if (!payload.hasPost()) {
+            if (payload.post == null) {
               state = state.copyWith(
                 clearPost: true,
                 isLoadingPostPayload: false,
@@ -142,10 +140,8 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
         isPostMutationInFlight: true,
       );
       try {
-        final postServiceClient = await ref.read(
-          postServiceClientProvider.future,
-        );
-        await postServiceClient.deletePost(DeletePostRequest(postId: postId));
+        final postsApi = await ref.read(postsApiProvider.future);
+        await postsApi.deletePost(postId);
       } on Object catch (error) {
         state = state.copyWith(
           isAwaitingDeletion: false,
@@ -163,12 +159,8 @@ final class PostTileNotifier extends Notifier<PostTileUi> {
     }
     state = state.copyWith(isPostMutationInFlight: true);
     try {
-      final postServiceClient = await ref.read(
-        postServiceClientProvider.future,
-      );
-      await postServiceClient.editPost(
-        EditPostRequest(postId: postId, body: savedBody),
-      );
+      final postsApi = await ref.read(postsApiProvider.future);
+      await postsApi.editPost(postId, EditPostRequest(body: savedBody));
     } on Object catch (error) {
       state = state.copyWith(
         isPostMutationInFlight: false,

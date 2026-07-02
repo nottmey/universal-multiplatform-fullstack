@@ -1,11 +1,10 @@
 import 'dart:async';
 
-import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:frontend/event_bus/event_bus_force_refresh.dart';
 import 'package:frontend/features/posts/post_tile_notifier.dart';
-import 'package:frontend/grpc/grpc_connection_epoch_provider.dart';
 import 'package:frontend/keys.dart';
 
 class PostTimelineTile extends ConsumerWidget {
@@ -95,13 +94,12 @@ class PostTimelineTile extends ConsumerWidget {
   }
 }
 
-String _formatPostTimestampMillis(Int64 millisecondsSinceEpoch) {
-  if (millisecondsSinceEpoch == Int64.ZERO) {
+String _formatPostTimestampMillis(int millisecondsSinceEpoch) {
+  if (millisecondsSinceEpoch == 0) {
     return '—';
   }
-  final epochMilliseconds = millisecondsSinceEpoch.toInt();
   return DateTime.fromMillisecondsSinceEpoch(
-    epochMilliseconds,
+    millisecondsSinceEpoch,
     isUtc: true,
   ).toLocal().toIso8601String();
 }
