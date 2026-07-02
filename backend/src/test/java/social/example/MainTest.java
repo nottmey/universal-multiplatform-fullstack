@@ -2,74 +2,69 @@ package social.example;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static social.example.HttpTestSupport.assertApiError;
 
 import com.google.firebase.FirebaseApp;
-import com.linecorp.armeria.client.WebClient;
-import com.linecorp.armeria.client.grpc.GrpcClients;
-import com.linecorp.armeria.common.HttpHeaderNames;
-import com.linecorp.armeria.common.HttpMethod;
-import com.linecorp.armeria.common.HttpRequest;
-import io.grpc.StatusRuntimeException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import lombok.val;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import social.example.auth.FirebaseAuthEmulatorClient;
-import social.example.features.posts.grpc.CreatePostRequest;
-import social.example.features.posts.grpc.PostServiceGrpc;
 
 class MainTest {
+  private static final HttpClient HTTP_CLIENT =
+      HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+
   @AfterEach
   void deleteFirebaseApps() {
     FirebaseApp.getApps().forEach(FirebaseApp::delete);
   }
 
   @Test
-  void bootstrap_devScenarioSmoke() {
+  void bootstrap_devScenarioSmoke() throws Exception {
     try (val application = Main.bootstrap(new String[] {"0"})) {
-      val server = application.server;
-      server.start().join();
-      val serverUri = "http://127.0.0.1:" + server.activeLocalPort();
+      application.app.start(application.port);
+      val serverUri = "http://127.0.0.1:" + application.app.port();
 
       val corsResponse =
-          WebClient.of(serverUri)
-              .execute(
-                  HttpRequest.builder()
-                      .method(HttpMethod.OPTIONS)
-                      .path("/social.example.features.posts.grpc.PostService/CreatePost")
-                      .header(HttpHeaderNames.ORIGIN, "http://localhost:3000")
-                      .header(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD, "POST")
-                      .build())
-              .aggregate()
-              .join();
-      assertEquals("*", corsResponse.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN));
-      val allowedMethods = corsResponse.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS);
-      assertTrue(allowedMethods.contains("POST"));
-      assertTrue(allowedMethods.contains("OPTIONS"));
+          HTTP_CLIENT.send(
+              HttpRequest.newBuilder(URI.create(serverUri + "/posts"))
+                  .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+                  .header("Origin", "http://localhost:3000")
+                  .header("Access-Control-Request-Method", "POST")
+                  .build(),
+              HttpResponse.BodyHandlers.ofString());
+      assertEquals(
+          "*", corsResponse.headers().firstValue("Access-Control-Allow-Origin").orElse(null));
 
-      val unauthenticatedStub =
-          GrpcClients.newClient(
-              "gproto+" + serverUri, PostServiceGrpc.PostServiceBlockingStub.class);
-      assertThrows(
-          StatusRuntimeException.class,
-          () ->
-              unauthenticatedStub.createPost(
-                  CreatePostRequest.newBuilder().setBody("blocked").build()));
+      val unauthenticated =
+          HTTP_CLIENT.send(
+              HttpRequest.newBuilder(URI.create(serverUri + "/posts"))
+                  .header("Content-Type", "application/json")
+                  .POST(HttpRequest.BodyPublishers.ofString("{\"body\":\"blocked\"}"))
+                  .build(),
+              HttpResponse.BodyHandlers.ofString());
+      assertApiError(unauthenticated, 401, "UNAUTHENTICATED", "missing authorization bearer token");
+
+      val openApiResponse =
+          HTTP_CLIENT.send(
+              HttpRequest.newBuilder(URI.create(serverUri + "/openapi")).GET().build(),
+              HttpResponse.BodyHandlers.ofString());
+      assertEquals(200, openApiResponse.statusCode());
+      assertTrue(openApiResponse.body().contains("/posts"));
 
       val idToken =
           FirebaseAuthEmulatorClient.signUpEmailPassword(
               FirebaseAuthEmulatorClient.uniqueEmail(), "password-123456");
-      val authenticatedStub =
-          GrpcClients.builder("gproto+" + serverUri)
-              .addHeader("authorization", "Bearer " + idToken)
-              .build(PostServiceGrpc.PostServiceBlockingStub.class);
-      val post =
-          authenticatedStub
-              .createPost(CreatePostRequest.newBuilder().setBody("smoke").build())
-              .getPost();
-      assertFalse(post.getPostId().isBlank());
-      assertEquals("smoke", post.getBody());
+      val api = new ApiTestClient(application.app.port(), idToken);
+      val post = api.createPost("smoke");
+      assertFalse(post.postId().isBlank());
+      assertEquals("smoke", post.body());
     }
   }
 }

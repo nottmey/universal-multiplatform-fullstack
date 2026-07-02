@@ -1,48 +1,44 @@
 package social.example.features;
 
-import static social.example.GrpcTestSupport.shutdown;
-
-import io.grpc.BindableService;
-import io.grpc.ManagedChannel;
-import io.grpc.Server;
-import io.grpc.inprocess.InProcessChannelBuilder;
-import io.grpc.inprocess.InProcessServerBuilder;
-import java.util.function.Function;
+import io.javalin.Javalin;
+import java.util.List;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
-import lombok.val;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import social.example.ApiTestClient;
+import social.example.HttpTestSupport;
+import social.example.Main;
+import social.example.auth.verifier.AcceptingIdTokenVerifier;
 
 // assume fixture is only used in tests and always mounted correctly
 @RequiredArgsConstructor
 public class InputValidationFixture implements BeforeEachCallback, AfterEachCallback {
-  private final BindableService service;
-  private Server server;
-  private ManagedChannel channel;
+  private final Consumer<Javalin> routeRegistrar;
+  private Javalin app;
+  private ApiTestClient api;
 
-  public <S> S stub(final Function<ManagedChannel, S> stubFactory) {
-    return stubFactory.apply(channel);
+  public ApiTestClient api() {
+    return api;
   }
 
   @Override
   public void beforeEach(final ExtensionContext extensionContext) throws Exception {
-    val serverName = InProcessServerBuilder.generateName();
-    server =
-        InProcessServerBuilder.forName(serverName)
-            .directExecutor()
-            .addService(service)
-            .build()
-            .start();
-    channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
+    app =
+        Main.buildApp(
+                new AcceptingIdTokenVerifier(),
+                List.of(new InstalledFeature(List.of(routeRegistrar), List.of())))
+            .start(0);
+    api = new ApiTestClient(app.port(), HttpTestSupport.TEST_USER_ID);
   }
 
   @Override
   public void afterEach(final ExtensionContext extensionContext) throws Exception {
-    if (channel != null || server != null) {
-      shutdown(channel, server);
-      channel = null;
-      server = null;
+    if (app != null) {
+      app.stop();
+      app = null;
     }
+    api = null;
   }
 }

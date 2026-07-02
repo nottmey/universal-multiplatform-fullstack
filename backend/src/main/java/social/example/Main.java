@@ -1,27 +1,25 @@
 package social.example;
 
-import com.linecorp.armeria.common.HttpHeaderNames;
-import com.linecorp.armeria.common.HttpMethod;
-import com.linecorp.armeria.server.Server;
-import com.linecorp.armeria.server.cors.CorsService;
-import com.linecorp.armeria.server.grpc.GrpcService;
-import com.linecorp.armeria.server.logging.LoggingService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rpl.rama.test.InProcessCluster;
-import io.grpc.BindableService;
-import io.grpc.ServerInterceptor;
-import io.grpc.protobuf.services.ProtoReflectionServiceV1;
-import java.time.Duration;
+import io.javalin.Javalin;
+import io.javalin.http.HandlerType;
+import io.javalin.http.HttpStatus;
+import io.javalin.json.JavalinJackson;
+import io.javalin.openapi.plugin.OpenApiPlugin;
 import java.util.List;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import social.example.api.ApiError;
+import social.example.api.ApiException;
 import social.example.auth.FirebaseBootstrap;
-import social.example.eventbus.EventBusService;
+import social.example.auth.HttpAuthenticator;
+import social.example.auth.verifier.FirebaseIdTokenVerifier;
+import social.example.eventbus.EventBusWebSocket;
 import social.example.features.FeatureRegistry;
 import social.example.features.InstalledFeature;
-import social.example.logging.GrpcLogging;
-import social.example.logging.HttpLogging;
+import social.example.logging.ApiLogging;
 import social.example.utils.CloseQuietly;
 
 @Log4j2
@@ -31,7 +29,8 @@ public final class Main implements AutoCloseable {
 
   // visible for testing
   final InProcessCluster cluster;
-  final Server server;
+  final Javalin app;
+  final int port;
 
   public static Main bootstrap(final String[] args) {
     FirebaseBootstrap.initialize();
@@ -41,63 +40,73 @@ public final class Main implements AutoCloseable {
     log.info("cluster started");
     val features = FeatureRegistry.installAll(cluster);
     log.info("features installed");
-    val server = buildServer(port, FirebaseBootstrap.interceptor(), services(features));
-    log.info("server built");
-    return new Main(cluster, server);
+    val app = buildApp(FirebaseBootstrap.verifier(), features);
+    log.info("app built");
+    return new Main(cluster, app, port);
   }
 
   public static void main(final String[] args) throws Exception {
     try (val application = bootstrap(args)) {
       Runtime.getRuntime()
-          .addShutdownHook(new Thread(application.server::close, "armeria-server-shutdown"));
-      application.server.start().join();
-      val port = application.server.activeLocalPort();
-      log.info("server started, listening on http://127.0.0.1:{}", port);
-      application.server.blockUntilShutdown();
+          .addShutdownHook(new Thread(application.app::stop, "javalin-server-shutdown"));
+      application.app.start(application.port);
+      log.info("server started, listening on http://127.0.0.1:{}", application.app.port());
+      application.app.jettyServer().server().join();
     }
   }
 
-  public static List<BindableService> services(final List<InstalledFeature> installedFeatures) {
-    return Stream.concat(
+  public static Javalin buildApp(
+      final FirebaseIdTokenVerifier verifier, final List<InstalledFeature> installedFeatures) {
+    val json = new ObjectMapper();
+    val authenticator = new HttpAuthenticator(verifier);
+    val app =
+        Javalin.create(
+            config -> {
+              config.showJavalinBanner = false;
+              config.jsonMapper(new JavalinJackson(json, false));
+              config.bundledPlugins.enableCors(cors -> cors.addRule(rule -> rule.anyHost()));
+              config.registerPlugin(
+                  new OpenApiPlugin(openApi -> openApi.withDocumentationPath("/openapi")));
+              config.requestLogger.http(ApiLogging::logHttp);
+            });
+    // CORS preflight requests carry no Authorization header; the CORS plugin answers them.
+    app.before(
+        "/posts",
+        ctx -> {
+          if (ctx.method() != HandlerType.OPTIONS) {
+            authenticator.authenticateHttp(ctx);
+          }
+        });
+    app.before(
+        "/posts/*",
+        ctx -> {
+          if (ctx.method() != HandlerType.OPTIONS) {
+            authenticator.authenticateHttp(ctx);
+          }
+        });
+    app.wsBeforeUpgrade(EventBusWebSocket.PATH, authenticator::authenticateWsUpgrade);
+    app.exception(ApiException.class, (e, ctx) -> ctx.status(e.getStatus()).json(e.toError()));
+    app.exception(
+        Exception.class,
+        (e, ctx) -> {
+          log.error("unexpected failure", e);
+          ctx.status(HttpStatus.INTERNAL_SERVER_ERROR)
+              .json(new ApiError("INTERNAL", e.getMessage()));
+        });
+    installedFeatures.forEach(
+        installedFeature -> installedFeature.routeRegistrars().forEach(r -> r.accept(app)));
+    EventBusWebSocket.fromSubscriptions(
             installedFeatures.stream()
-                .flatMap(installedFeature -> installedFeature.grpcServices().stream()),
-            Stream.of(
-                EventBusService.fromSubscriptions(
-                    installedFeatures.stream()
-                        .flatMap(installedFeature -> installedFeature.subscriptionCases().stream())
-                        .toList()),
-                ProtoReflectionServiceV1.newInstance()))
-        .toList();
+                .flatMap(installedFeature -> installedFeature.subscriptionCases().stream())
+                .toList(),
+            json)
+        .register(app);
+    return app;
   }
 
   @Override
   public void close() {
-    server.close();
+    app.stop();
     CloseQuietly.close(cluster);
-  }
-
-  private static Server buildServer(
-      final int port,
-      final ServerInterceptor authInterceptor,
-      final List<BindableService> bindableServices) {
-    return Server.builder()
-        .http(port)
-        .service(
-            GrpcService.builder()
-                .intercept(authInterceptor)
-                .intercept(new GrpcLogging())
-                .addServices(bindableServices)
-                .build(),
-            CorsService.builderForAnyOrigin()
-                .allowRequestMethods(HttpMethod.GET, HttpMethod.POST, HttpMethod.OPTIONS)
-                .allowAllRequestHeaders(true)
-                .exposeHeaders(
-                    HttpHeaderNames.of("grpc-status"),
-                    HttpHeaderNames.of("grpc-message"),
-                    HttpHeaderNames.CONTENT_TYPE)
-                .maxAge(Duration.ofHours(1))
-                .newDecorator(),
-            LoggingService.builder().logWriter(new HttpLogging()).newDecorator())
-        .build();
   }
 }

@@ -4,11 +4,11 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import io.grpc.ServerInterceptor;
 import java.io.IOException;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import social.example.auth.verifier.DefaultFirebaseIdTokenVerifier;
+import social.example.auth.verifier.FirebaseIdTokenVerifier;
 
 @Log4j2
 public final class FirebaseBootstrap {
@@ -17,8 +17,8 @@ public final class FirebaseBootstrap {
 
   private FirebaseBootstrap() {}
 
-  public static ServerInterceptor interceptor() {
-    return new FirebaseAuthenticationInterceptor(new DefaultFirebaseIdTokenVerifier());
+  public static FirebaseIdTokenVerifier verifier() {
+    return new DefaultFirebaseIdTokenVerifier();
   }
 
   public static void initialize() {

@@ -1,172 +1,93 @@
 package social.example.eventbus;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static social.example.GrpcTestSupport.assertInvalidArgument;
-import static social.example.GrpcTestSupport.context;
 
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import java.util.List;
 import java.util.UUID;
 import lombok.val;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import social.example.eventbus.grpc.EventBusRequest;
-import social.example.eventbus.grpc.Subscription;
-import social.example.features.posts.grpc.SubscribePostRequest;
-import social.example.features.timeline.grpc.SubscribeTimelineRequest;
+import social.example.api.EventBusClientMessage;
+import social.example.api.SubscribeCommand;
 
 class EventBusInputValidationTest {
-  @Test
-  void subscribeRpc_failsWhenNoEventBusStream() throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      val thrown =
-          assertThrows(
-              StatusRuntimeException.class,
-              () ->
-                  eventBus.subscribe(
-                      context("test", 0),
-                      Subscription.newBuilder()
-                          .setSubscriptionId(UUID.randomUUID().toString())
-                          .setPost(SubscribePostRequest.newBuilder().setPostId("orphan").build())
-                          .build()));
-      assertEquals(Status.Code.FAILED_PRECONDITION, thrown.getStatus().getCode());
-    }
-  }
+  private static final long SETTLE_MILLIS = 200L;
 
   @Test
-  void unsubscribeRpc_completesWhenNoEventBusStream() throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      assertDoesNotThrow(
-          () -> eventBus.unsubscribe(context("test", 0), UUID.randomUUID().toString()));
+  void unsubscribe_unknownSubscriptionId_isIgnored() throws Exception {
+    try (val server = new EventBusTestServer();
+        val client = server.connectTestUser()) {
+      client.unsubscribe(UUID.randomUUID().toString());
+      client.assertNoEventsWithin(SETTLE_MILLIS);
     }
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"", "  "})
-  void subscribeRpc_rejectsBlankSubscriptionId(final String subscriptionId) throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      val context = context("test", 0);
-      eventBus.openEventBusWithDiscardedResponses(context);
-      assertInvalidArgument(
-          () ->
-              eventBus.subscribe(
-                  context,
-                  Subscription.newBuilder()
-                      .setSubscriptionId(subscriptionId)
-                      .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
-                      .build()),
-          "subscription_id is required");
+  void subscribe_rejectsBlankSubscriptionId(final String subscriptionId) throws Exception {
+    try (val server = new EventBusTestServer();
+        val client = server.connectTestUser()) {
+      client.subscribe(SubscribeCommand.post(subscriptionId, "any"));
+      awaitErrorEvent(client, subscriptionId, "INVALID_ARGUMENT", "subscription_id is required");
     }
   }
 
   @Test
-  void eventBus_rejectsMissingSubscriptionOneof() throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      val context = context("test", 0);
-      eventBus.openEventBusWithDiscardedResponses(context);
-      assertInvalidArgument(
-          () ->
-              eventBus.subscribe(
-                  context,
-                  Subscription.newBuilder()
-                      .setSubscriptionId(UUID.randomUUID().toString())
-                      .build()),
-          "subscription oneof is required");
+  void subscribe_rejectsMissingSubscriptionOneof() throws Exception {
+    try (val server = new EventBusTestServer();
+        val client = server.connectTestUser()) {
+      val subscriptionId = UUID.randomUUID().toString();
+      client.subscribe(new SubscribeCommand(subscriptionId, null, null));
+      awaitErrorEvent(client, subscriptionId, "INVALID_ARGUMENT", "subscription oneof is required");
     }
   }
 
   @Test
-  void subscribeRpc_rejectsUnimplementedSubscriptionCase() throws Exception {
-    try (val eventBus = new InProcessEventBus(List.of())) {
-      val context = context("test", 0);
-      eventBus.openEventBusWithDiscardedResponses(context);
-      val thrown =
-          assertThrows(
-              StatusRuntimeException.class,
-              () ->
-                  eventBus.subscribe(
-                      context,
-                      Subscription.newBuilder()
-                          .setSubscriptionId(UUID.randomUUID().toString())
-                          .setTimeline(SubscribeTimelineRequest.getDefaultInstance())
-                          .build()));
-      assertEquals(Status.Code.UNIMPLEMENTED, thrown.getStatus().getCode());
+  void subscribe_rejectsUnimplementedSubscriptionCase() throws Exception {
+    try (val server = new EventBusTestServer(List.of());
+        val client = server.connectTestUser()) {
+      val subscriptionId = UUID.randomUUID().toString();
+      client.subscribe(SubscribeCommand.timeline(subscriptionId));
+      awaitErrorEvent(
+          client, subscriptionId, "UNIMPLEMENTED", "no subscription handler for case: TIMELINE");
     }
   }
 
   @Test
-  void eventBus_rejectsUnsetConnectionContextOnStreamOpen() throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      assertInvalidArgument(
-          () -> eventBus.blockingStub().eventBus(EventBusRequest.newBuilder().build()).hasNext(),
-          "connection context id is required");
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(strings = {"", "  "})
-  void eventBus_rejectsBlankConnectionContextIdOnStreamOpen(final String sessionId)
-      throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      assertInvalidArgument(
-          () -> {
-            eventBus
-                .blockingStub()
-                .eventBus(EventBusRequest.newBuilder().setContext(context(sessionId, 0)).build())
-                .hasNext();
-          },
-          "connection context id is required");
+  void clientMessage_rejectsMissingOneof() throws Exception {
+    try (val server = new EventBusTestServer();
+        val client = server.connectTestUser()) {
+      client.send(new EventBusClientMessage(null, null));
+      awaitErrorEvent(client, null, "INVALID_ARGUMENT", "client message oneof is required");
     }
   }
 
   @Test
-  void eventBus_rejectsNegativeConnectionContextEpochOnStreamOpen() throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      assertInvalidArgument(
-          () -> {
-            eventBus
-                .blockingStub()
-                .eventBus(EventBusRequest.newBuilder().setContext(context("test", -1)).build())
-                .hasNext();
-          },
-          "connection context epoch must be non-negative");
+  void clientMessage_rejectsUnparseableFrame() throws Exception {
+    try (val server = new EventBusTestServer();
+        val client = server.connectTestUser()) {
+      client.sendRaw("not-json");
+      awaitErrorEvent(client, null, "INVALID_ARGUMENT", "unparseable client message");
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"", "  "})
-  void subscribeRpc_rejectsBlankConnectionContextId(final String sessionId) throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      eventBus.openEventBusWithDiscardedResponses(context("test", 0));
-      assertInvalidArgument(
-          () ->
-              eventBus.subscribe(
-                  context(sessionId, 0),
-                  Subscription.newBuilder()
-                      .setSubscriptionId(UUID.randomUUID().toString())
-                      .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
-                      .build()),
-          "connection context id is required");
-    }
+  private static void awaitErrorEvent(
+      final EventBusTestClient client,
+      final String subscriptionId,
+      final String code,
+      final String message)
+      throws InterruptedException {
+    val events = client.awaitAndDrainEvents(1);
+    assertEquals(1, events.size(), () -> "expected a single error event, got: " + events);
+    val event = events.getFirst();
+    assertEquals(blankToNull(subscriptionId), blankToNull(event.subscriptionId()));
+    val error = event.error();
+    assertEquals(code, error == null ? null : error.code(), () -> "event: " + event);
+    assertEquals(message, error == null ? null : error.message());
   }
 
-  @Test
-  void subscribeRpc_rejectsNegativeConnectionContextEpoch() throws Exception {
-    try (val eventBus = new InProcessEventBus()) {
-      eventBus.openEventBusWithDiscardedResponses(context("test", 0));
-      assertInvalidArgument(
-          () ->
-              eventBus.subscribe(
-                  context("test", -1),
-                  Subscription.newBuilder()
-                      .setSubscriptionId(UUID.randomUUID().toString())
-                      .setPost(SubscribePostRequest.newBuilder().setPostId("any").build())
-                      .build()),
-          "connection context epoch must be non-negative");
-    }
+  private static String blankToNull(final String value) {
+    return value == null || value.isBlank() ? null : value;
   }
 }

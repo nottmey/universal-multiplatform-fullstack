@@ -15,7 +15,6 @@ plugins {
     jacoco
     `java-test-fixtures`
     checkstyle
-    alias(libs.plugins.protobuf)
     alias(libs.plugins.spotless)
     alias(libs.plugins.errorprone)
 }
@@ -59,53 +58,55 @@ dependencies {
     implementation(nettyBom)
     testImplementation(nettyBom)
     testFixturesImplementation(nettyBom)
-    implementation(libs.protobuf.java)
-    implementation(libs.javax.annotation.api)
-    implementation(libs.grpc.stub)
-    implementation(libs.grpc.protobuf)
     implementation(libs.log4j.api)
 
     implementation(libs.rama)
     implementation(libs.rama.helpers)
     implementation(libs.jackson.module.scala213)
 
-    implementation(platform(libs.armeria.bom))
-    implementation(libs.armeria)
-    implementation(libs.armeria.grpc)
-    implementation(libs.grpc.services)
+    implementation(libs.javalin)
+    implementation(libs.javalin.openapi.plugin)
+    implementation(libs.jackson.databind)
+    annotationProcessor(libs.openapi.annotation.processor)
     implementation(libs.firebase.admin)
     runtimeOnly(libs.bundles.logging)
 
-    testFixturesImplementation(libs.grpc.stub)
-    testFixturesImplementation(libs.grpc.protobuf)
+    testFixturesImplementation(libs.javalin)
+    testFixturesImplementation(libs.jackson.databind)
     testFixturesImplementation(libs.rama)
     testFixturesImplementation(libs.junit.jupiter)
-    testFixturesImplementation("io.grpc:grpc-inprocess:${libs.versions.grpc.get()}")
-    testFixturesImplementation("org.mockito:mockito-core:5.14.2")
     testFixturesImplementation(libs.firebase.admin)
     testFixturesImplementation(sourceSets.main.get().output)
     testImplementation(testFixtures(project(":")))
     testImplementation(libs.junit.jupiter)
-    testImplementation("io.grpc:grpc-inprocess:${libs.versions.grpc.get()}")
     testRuntimeOnly(libs.bundles.logging)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-protobuf {
-    protoc {
-        artifact = "com.google.protobuf:protoc:${libs.versions.protoc.get()}"
-    }
-    plugins {
-        create("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:${libs.versions.grpc.get()}"
+// The annotation processor emits paths/components at compile time; info and securitySchemes are
+// runtime plugin config in javalin-openapi, so inject them here to keep the committed spec whole.
+val exportOpenApi by tasks.registering {
+    description = "Exports the compile-time generated OpenAPI spec to the committed spec/ directory."
+    dependsOn(tasks.compileJava)
+    val generatedSpec =
+        sourceSets.main.get().output.classesDirs.asFileTree.matching {
+            include("openapi-plugin/openapi-*.json")
         }
-    }
-    generateProtoTasks {
-        all().configureEach {
-            plugins {
-                create("grpc")
-            }
-        }
+    val outputSpec = layout.projectDirectory.file("../spec/openapi.json")
+    val specVersion = version.toString()
+    inputs.files(generatedSpec)
+    outputs.file(outputSpec)
+    doLast {
+        val specFile = generatedSpec.singleFile
+        @Suppress("UNCHECKED_CAST")
+        val spec = groovy.json.JsonSlurper().parse(specFile) as MutableMap<String, Any?>
+        spec["info"] = mapOf("title" to "Social Example API", "version" to specVersion)
+        @Suppress("UNCHECKED_CAST")
+        val components =
+            spec.getOrPut("components") { mutableMapOf<String, Any?>() } as MutableMap<String, Any?>
+        components["securitySchemes"] =
+            mapOf("bearerAuth" to mapOf("type" to "http", "scheme" to "bearer", "bearerFormat" to "JWT"))
+        outputSpec.asFile.writeText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(spec)) + "\n")
     }
 }
 

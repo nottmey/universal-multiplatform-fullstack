@@ -1,8 +1,9 @@
 package social.example.features;
 
-import io.grpc.BindableService;
+import io.javalin.Javalin;
 import java.util.List;
+import java.util.function.Consumer;
 import social.example.eventbus.EventBusSubscription;
 
 public record InstalledFeature(
-    List<BindableService> grpcServices, List<EventBusSubscription> subscriptionCases) {}
+    List<Consumer<Javalin>> routeRegistrars, List<EventBusSubscription> subscriptionCases) {}

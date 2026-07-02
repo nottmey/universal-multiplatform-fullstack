@@ -1,0 +1,491 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Social Example API",
+        "version": "0.1.0-SNAPSHOT"
+    },
+    "paths": {
+        "/events": {
+            "get": {
+                "tags": [
+                    "events"
+                ],
+                "summary": "EventBus WebSocket",
+                "description": "WebSocket endpoint (HTTP GET upgrade). The client sends EventBusClientMessage frames (subscribe/unsubscribe) and receives EventBusServerMessage frames (connectionReady handshake, subscription events, subscription errors).",
+                "operationId": "eventBus",
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "query",
+                        "description": "Firebase ID token; WebSocket clients cannot send an Authorization header from browsers.",
+                        "required": true,
+                        "deprecated": false,
+                        "allowEmptyValue": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "Message frames the client sends over the socket; not an HTTP body.",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EventBusClientMessage"
+                            }
+                        }
+                    },
+                    "required": false
+                },
+                "responses": {
+                    "200": {
+                        "description": "Message frames the server pushes over the socket.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventBusServerMessage"
+                                }
+                            }
+                        }
+                    }
+                },
+                "deprecated": false,
+                "security": [
+                    
+                ]
+            }
+        },
+        "/posts": {
+            "post": {
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Create a post",
+                "operationId": "createPost",
+                "parameters": [
+                    
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreatePostRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PostResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "deprecated": false,
+                "security": [
+                    {
+                        "bearerAuth": [
+                            
+                        ]
+                    }
+                ]
+            }
+        },
+        "/posts/{postId}": {
+            "put": {
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Replace the body of a post",
+                "operationId": "editPost",
+                "parameters": [
+                    {
+                        "name": "postId",
+                        "in": "path",
+                        "required": true,
+                        "deprecated": false,
+                        "allowEmptyValue": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EditPostRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PostResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "deprecated": false,
+                "security": [
+                    {
+                        "bearerAuth": [
+                            
+                        ]
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "posts"
+                ],
+                "summary": "Delete a post",
+                "operationId": "deletePost",
+                "parameters": [
+                    {
+                        "name": "postId",
+                        "in": "path",
+                        "required": true,
+                        "deprecated": false,
+                        "allowEmptyValue": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "deprecated": false,
+                "security": [
+                    {
+                        "bearerAuth": [
+                            
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ApiError": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "code",
+                    "message"
+                ]
+            },
+            "ConnectionReady": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    
+                }
+            },
+            "CreatePostRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "body": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "body"
+                ]
+            },
+            "EditPostRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "body": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "body"
+                ]
+            },
+            "EventBusClientMessage": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "subscribe": {
+                        "$ref": "#/components/schemas/SubscribeCommand"
+                    },
+                    "unsubscribe": {
+                        "$ref": "#/components/schemas/UnsubscribeCommand"
+                    }
+                }
+            },
+            "EventBusServerMessage": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "subscriptionId": {
+                        "type": "string"
+                    },
+                    "connectionReady": {
+                        "$ref": "#/components/schemas/ConnectionReady"
+                    },
+                    "timeline": {
+                        "$ref": "#/components/schemas/TimelineEvent"
+                    },
+                    "post": {
+                        "$ref": "#/components/schemas/PostEvent"
+                    },
+                    "error": {
+                        "$ref": "#/components/schemas/ApiError"
+                    }
+                }
+            },
+            "Post": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "postId": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "postedAtMillis": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "required": [
+                    "postId",
+                    "body",
+                    "postedAtMillis"
+                ]
+            },
+            "PostEvent": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "post": {
+                        "$ref": "#/components/schemas/Post"
+                    }
+                }
+            },
+            "PostResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "post": {
+                        "$ref": "#/components/schemas/Post"
+                    }
+                },
+                "required": [
+                    "post"
+                ]
+            },
+            "PostSubscriptionRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "postId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "postId"
+                ]
+            },
+            "SubscribeCommand": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "subscriptionId": {
+                        "type": "string"
+                    },
+                    "timeline": {
+                        "$ref": "#/components/schemas/TimelineSubscriptionRequest"
+                    },
+                    "post": {
+                        "$ref": "#/components/schemas/PostSubscriptionRequest"
+                    }
+                },
+                "required": [
+                    "subscriptionId"
+                ]
+            },
+            "TimelineEvent": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "postIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "postIds"
+                ]
+            },
+            "TimelineSubscriptionRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    
+                }
+            },
+            "UnsubscribeCommand": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "subscriptionId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "subscriptionId"
+                ]
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}

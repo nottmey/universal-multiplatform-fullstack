@@ -1,105 +1,75 @@
 package social.example.features;
 
-import static social.example.GrpcTestSupport.shutdown;
-
 import com.rpl.rama.test.InProcessCluster;
-import io.grpc.ManagedChannel;
-import io.grpc.Server;
-import io.grpc.inprocess.InProcessChannelBuilder;
-import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.stub.StreamObserver;
+import io.javalin.Javalin;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import lombok.val;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import social.example.GrpcTestSupport;
+import social.example.ApiTestClient;
+import social.example.HttpTestSupport;
 import social.example.Main;
-import social.example.auth.FirebaseAuthenticationInterceptor;
+import social.example.api.EventBusServerMessage;
+import social.example.api.SubscribeCommand;
 import social.example.auth.verifier.AcceptingIdTokenVerifier;
-import social.example.eventbus.grpc.ConnectionContext;
-import social.example.eventbus.grpc.Event;
-import social.example.eventbus.grpc.EventBusRequest;
-import social.example.eventbus.grpc.EventBusServiceGrpc;
-import social.example.eventbus.grpc.SubscribeRequest;
-import social.example.eventbus.grpc.Subscription;
-import social.example.eventbus.grpc.UnsubscribeRequest;
+import social.example.eventbus.EventBusTestClient;
 
 // assume fixture is only used in tests and always mounted correctly
 public class FeatureFixture implements BeforeEachCallback, AfterEachCallback {
   private final InstallableFeature[] installableFeatures;
   private InProcessCluster cluster;
-  private Server server;
-  private ManagedChannel channel;
-  private ConnectionContext context;
-  private EventBusServiceGrpc.EventBusServiceStub eventBusAsyncStub;
-  private EventBusServiceGrpc.EventBusServiceBlockingStub eventBusBlockingStub;
-  private CopyOnWriteArrayList<Event> eventBusEvents;
-  private CopyOnWriteArrayList<Throwable> eventBusStreamErrors;
+  private Javalin app;
+  private ApiTestClient api;
+  private EventBusTestClient eventBus;
 
-  @SafeVarargs
   public FeatureFixture(final InstallableFeature... installableFeatures) {
     this.installableFeatures = installableFeatures;
-  }
-
-  public <S> S stub(final Function<ManagedChannel, S> stubFactory) {
-    return GrpcTestSupport.withTestUserId(stubFactory.apply(channel));
   }
 
   public InProcessCluster cluster() {
     return cluster;
   }
 
-  public EventBusServiceGrpc.EventBusServiceStub eventBusAsyncStub() {
-    return eventBusAsyncStub;
+  public ApiTestClient api() {
+    return api;
   }
 
-  public EventBusServiceGrpc.EventBusServiceBlockingStub eventBusBlockingStub() {
-    return eventBusBlockingStub;
+  public EventBusTestClient eventBus() {
+    return eventBus;
   }
 
-  public List<Event> drainEventBusEvents() {
-    val drained = List.copyOf(eventBusEvents);
-    eventBusEvents.clear();
-    return drained;
+  public List<EventBusServerMessage> drainEventBusEvents() {
+    return eventBus.drainEvents();
+  }
+
+  public List<EventBusServerMessage> awaitAndDrainEventBusEvents(final int count)
+      throws InterruptedException {
+    return eventBus.awaitAndDrainEvents(count);
   }
 
   public List<Throwable> drainEventBusStreamErrors() {
-    val drained = List.copyOf(eventBusStreamErrors);
-    eventBusStreamErrors.clear();
-    return drained;
+    return eventBus.drainErrors();
   }
 
-  public void awaitEventBusEvent(final Predicate<Event> predicate, final String description)
+  public void awaitEventBusEvent(
+      final Predicate<EventBusServerMessage> predicate, final String description)
       throws InterruptedException {
-    val deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(2L);
-    while (System.nanoTime() < deadlineNanos) {
-      for (val event : drainEventBusEvents()) {
-        if (predicate.test(event)) {
-          return;
-        }
-      }
-      Thread.sleep(5L);
-    }
-    throw new AssertionError(description);
+    eventBus.awaitEvent(predicate, description);
   }
 
-  public void subscribe(final Subscription subscription) {
-    eventBusBlockingStub.subscribe(
-        SubscribeRequest.newBuilder().setContext(context).setSubscription(subscription).build());
+  public void assertNoEventBusEventsWithin(final long millis) throws InterruptedException {
+    eventBus.assertNoEventsWithin(millis);
+  }
+
+  public void subscribe(final SubscribeCommand command) {
+    eventBus.subscribe(command);
   }
 
   public void unsubscribe(final String subscriptionId) {
-    eventBusBlockingStub.unsubscribe(
-        UnsubscribeRequest.newBuilder()
-            .setContext(context)
-            .setSubscriptionId(subscriptionId)
-            .build());
+    eventBus.unsubscribe(subscriptionId);
   }
 
   @Override
@@ -109,71 +79,31 @@ public class FeatureFixture implements BeforeEachCallback, AfterEachCallback {
         Arrays.stream(installableFeatures)
             .map(installableFeature -> installableFeature.installOn(cluster))
             .toList();
-    val serverName = InProcessServerBuilder.generateName();
-    val serverBuilder = InProcessServerBuilder.forName(serverName).directExecutor();
-    for (val bindable : Main.services(installedFeatures)) {
-      serverBuilder.addService(bindable);
-    }
-    server =
-        serverBuilder
-            .intercept(new FirebaseAuthenticationInterceptor(new AcceptingIdTokenVerifier()))
-            .build();
-    channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
-    server.start();
-
-    context = GrpcTestSupport.context("test", 0);
-    eventBusAsyncStub = GrpcTestSupport.withTestUserId(EventBusServiceGrpc.newStub(channel));
-    eventBusBlockingStub =
-        GrpcTestSupport.withTestUserId(EventBusServiceGrpc.newBlockingStub(channel));
-    eventBusEvents = new CopyOnWriteArrayList<>();
-    eventBusStreamErrors = new CopyOnWriteArrayList<>();
-
-    eventBusAsyncStub.eventBus(
-        EventBusRequest.newBuilder().setContext(context).build(),
-        new StreamObserver<Event>() {
-          @Override
-          public void onNext(final Event event) {
-            if (!event.hasConnectionReady()) {
-              eventBusEvents.add(event);
-            }
-          }
-
-          @Override
-          public void onError(final Throwable throwable) {
-            eventBusStreamErrors.add(throwable);
-          }
-
-          @Override
-          public void onCompleted() {}
-        });
+    app = Main.buildApp(new AcceptingIdTokenVerifier(), installedFeatures).start(0);
+    api = new ApiTestClient(app.port(), HttpTestSupport.TEST_USER_ID);
+    eventBus = EventBusTestClient.connect(app.port(), HttpTestSupport.TEST_USER_ID);
   }
 
   @Override
   public void afterEach(final ExtensionContext extensionContext) throws Exception {
-    assertEventBusBuffersDrained();
-    if (channel != null || server != null) {
-      shutdown(channel, server);
-      channel = null;
-      server = null;
-    }
-    if (cluster != null) {
-      cluster.close();
-      cluster = null;
-    }
-    context = null;
-    eventBusAsyncStub = null;
-    eventBusBlockingStub = null;
-    eventBusEvents = null;
-    eventBusStreamErrors = null;
-  }
-
-  private void assertEventBusBuffersDrained() {
-    if (eventBusEvents != null && !eventBusEvents.isEmpty()) {
-      throw new AssertionError("undrained event bus events: " + List.copyOf(eventBusEvents));
-    }
-    if (eventBusStreamErrors != null && !eventBusStreamErrors.isEmpty()) {
-      throw new AssertionError(
-          "undrained event bus stream errors: " + List.copyOf(eventBusStreamErrors));
+    try {
+      if (eventBus != null) {
+        eventBus.assertBuffersDrained();
+      }
+    } finally {
+      if (eventBus != null) {
+        eventBus.close();
+        eventBus = null;
+      }
+      if (app != null) {
+        app.stop();
+        app = null;
+      }
+      if (cluster != null) {
+        cluster.close();
+        cluster = null;
+      }
+      api = null;
     }
   }
 }

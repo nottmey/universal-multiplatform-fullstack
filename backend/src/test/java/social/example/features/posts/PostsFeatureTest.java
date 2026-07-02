@@ -1,224 +1,124 @@
 package social.example.features.posts;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static social.example.GrpcTestSupport.assertNotFound;
+import static social.example.HttpTestSupport.assertNotFound;
 
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import java.util.List;
 import java.util.UUID;
 import lombok.val;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import social.example.eventbus.grpc.Event;
-import social.example.eventbus.grpc.Subscription;
+import social.example.api.EventBusServerMessage;
+import social.example.api.SubscribeCommand;
 import social.example.features.FeatureFixture;
-import social.example.features.posts.grpc.CreatePostRequest;
-import social.example.features.posts.grpc.DeletePostRequest;
-import social.example.features.posts.grpc.EditPostRequest;
-import social.example.features.posts.grpc.PostServiceGrpc;
-import social.example.features.posts.grpc.SubscribePostRequest;
-import social.example.features.posts.grpc.SubscribePostResponse;
 
 class PostsFeatureTest {
+  private static final long SETTLE_MILLIS = 200L;
+
   @RegisterExtension final FeatureFixture fixture = new FeatureFixture(new PostFeature());
-
-  private PostServiceGrpc.PostServiceBlockingStub postsStub;
-
-  @BeforeEach
-  void bindClients() {
-    postsStub = fixture.stub(PostServiceGrpc::newBlockingStub);
-  }
 
   @Test
   void editPost_updatesBodyForSamePostId() {
-    val first =
-        postsStub.createPost(CreatePostRequest.newBuilder().setBody("first").build()).getPost();
-    postsStub.createPost(CreatePostRequest.newBuilder().setBody("second").build());
-    val edited =
-        postsStub
-            .editPost(
-                EditPostRequest.newBuilder()
-                    .setPostId(first.getPostId())
-                    .setBody("first-edited")
-                    .build())
-            .getPost();
+    val first = fixture.api().createPost("first");
+    fixture.api().createPost("second");
+    val edited = fixture.api().editPost(first.postId(), "first-edited");
 
-    assertEquals(first.getPostId(), edited.getPostId());
-    assertEquals("first-edited", edited.getBody());
+    assertEquals(first.postId(), edited.postId());
+    assertEquals("first-edited", edited.body());
   }
 
   @Test
   void deletePost_succeedsTwiceSecondCallNotFound() {
-    val postId =
-        postsStub
-            .createPost(CreatePostRequest.newBuilder().setBody("to-delete").build())
-            .getPost()
-            .getPostId();
-    postsStub.deletePost(DeletePostRequest.newBuilder().setPostId(postId).build());
-    val thrown =
-        assertThrows(
-            StatusRuntimeException.class,
-            () -> postsStub.deletePost(DeletePostRequest.newBuilder().setPostId(postId).build()));
-    assertEquals(Status.Code.NOT_FOUND, thrown.getStatus().getCode());
+    val postId = fixture.api().createPost("to-delete").postId();
+    fixture.api().deletePost(postId);
+    assertNotFound(fixture.api().tryDeletePost(postId));
   }
 
   @Test
   void editPost_returnsNotFound_afterDelete() {
-    val postId =
-        postsStub
-            .createPost(CreatePostRequest.newBuilder().setBody("gone").build())
-            .getPost()
-            .getPostId();
-    postsStub.deletePost(DeletePostRequest.newBuilder().setPostId(postId).build());
-    assertNotFound(
-        () ->
-            postsStub.editPost(
-                EditPostRequest.newBuilder().setPostId(postId).setBody("again").build()));
+    val postId = fixture.api().createPost("gone").postId();
+    fixture.api().deletePost(postId);
+    assertNotFound(fixture.api().tryEditPost(postId, "again"));
   }
 
   @Test
-  void subscribePost_emitsCurrentPostAfterCreate() {
-    val created =
-        postsStub
-            .createPost(CreatePostRequest.newBuilder().setBody("subscribe-me").build())
-            .getPost();
+  void subscribePost_emitsCurrentPostAfterCreate() throws Exception {
+    val created = fixture.api().createPost("subscribe-me");
     val subscriptionId = UUID.randomUUID().toString();
 
-    fixture.subscribe(
-        Subscription.newBuilder()
-            .setSubscriptionId(subscriptionId)
-            .setPost(SubscribePostRequest.newBuilder().setPostId(created.getPostId()).build())
-            .build());
+    fixture.subscribe(SubscribeCommand.post(subscriptionId, created.postId()));
 
     assertEquals(
-        List.of(
-            Event.newBuilder()
-                .setSubscriptionId(subscriptionId)
-                .setPost(SubscribePostResponse.newBuilder().setPost(created).build())
-                .build()),
-        fixture.drainEventBusEvents());
+        List.of(EventBusServerMessage.post(subscriptionId, created)),
+        fixture.awaitAndDrainEventBusEvents(1));
   }
 
   @Test
-  void subscribePost_emitsUpdatedBodyAfterEdit() {
-    val created =
-        postsStub
-            .createPost(CreatePostRequest.newBuilder().setBody("before-edit").build())
-            .getPost();
-    val edited =
-        postsStub
-            .editPost(
-                EditPostRequest.newBuilder()
-                    .setPostId(created.getPostId())
-                    .setBody("after-edit")
-                    .build())
-            .getPost();
+  void subscribePost_emitsUpdatedBodyAfterEdit() throws Exception {
+    val created = fixture.api().createPost("before-edit");
+    val edited = fixture.api().editPost(created.postId(), "after-edit");
 
     val subscriptionId = UUID.randomUUID().toString();
-
-    fixture.subscribe(
-        Subscription.newBuilder()
-            .setSubscriptionId(subscriptionId)
-            .setPost(SubscribePostRequest.newBuilder().setPostId(created.getPostId()).build())
-            .build());
+    fixture.subscribe(SubscribeCommand.post(subscriptionId, created.postId()));
 
     assertEquals(
-        List.of(
-            Event.newBuilder()
-                .setSubscriptionId(subscriptionId)
-                .setPost(SubscribePostResponse.newBuilder().setPost(edited).build())
-                .build()),
-        fixture.drainEventBusEvents());
+        List.of(EventBusServerMessage.post(subscriptionId, edited)),
+        fixture.awaitAndDrainEventBusEvents(1));
   }
 
   @Test
-  void subscribePost_emitsEditWhileSubscribed() {
-    val created =
-        postsStub.createPost(CreatePostRequest.newBuilder().setBody("live-edit").build()).getPost();
+  void subscribePost_emitsEditWhileSubscribed() throws Exception {
+    val created = fixture.api().createPost("live-edit");
     val subscriptionId = UUID.randomUUID().toString();
 
-    fixture.subscribe(
-        Subscription.newBuilder()
-            .setSubscriptionId(subscriptionId)
-            .setPost(SubscribePostRequest.newBuilder().setPostId(created.getPostId()).build())
-            .build());
-    fixture.drainEventBusEvents();
+    fixture.subscribe(SubscribeCommand.post(subscriptionId, created.postId()));
+    fixture.awaitAndDrainEventBusEvents(1);
 
-    val edited =
-        postsStub
-            .editPost(
-                EditPostRequest.newBuilder()
-                    .setPostId(created.getPostId())
-                    .setBody("live-edited")
-                    .build())
-            .getPost();
+    val edited = fixture.api().editPost(created.postId(), "live-edited");
 
     assertEquals(
-        List.of(
-            Event.newBuilder()
-                .setSubscriptionId(subscriptionId)
-                .setPost(SubscribePostResponse.newBuilder().setPost(edited).build())
-                .build()),
-        fixture.drainEventBusEvents());
+        List.of(EventBusServerMessage.post(subscriptionId, edited)),
+        fixture.awaitAndDrainEventBusEvents(1));
   }
 
   @Test
-  void subscribePost_doesNotEmitBodyUpdateAfterDelete() {
-    val created =
-        postsStub
-            .createPost(CreatePostRequest.newBuilder().setBody("will-delete").build())
-            .getPost();
+  void subscribePost_doesNotEmitBodyUpdateAfterDelete() throws Exception {
+    val created = fixture.api().createPost("will-delete");
     val subscriptionId = UUID.randomUUID().toString();
 
-    fixture.subscribe(
-        Subscription.newBuilder()
-            .setSubscriptionId(subscriptionId)
-            .setPost(SubscribePostRequest.newBuilder().setPostId(created.getPostId()).build())
-            .build());
-    fixture.drainEventBusEvents();
+    fixture.subscribe(SubscribeCommand.post(subscriptionId, created.postId()));
+    fixture.awaitAndDrainEventBusEvents(1);
 
-    postsStub.deletePost(DeletePostRequest.newBuilder().setPostId(created.getPostId()).build());
+    fixture.api().deletePost(created.postId());
 
+    Thread.sleep(SETTLE_MILLIS);
     val eventsAfterDelete = fixture.drainEventBusEvents();
     val sawEditedBodyAfterDelete =
         eventsAfterDelete.stream()
             .anyMatch(
                 event ->
-                    subscriptionId.equals(event.getSubscriptionId())
-                        && event.hasPost()
-                        && "will-delete".equals(event.getPost().getPost().getBody()));
+                    subscriptionId.equals(event.subscriptionId())
+                        && event.post() != null
+                        && event.post().post() != null
+                        && "will-delete".equals(event.post().post().body()));
     assertEquals(false, sawEditedBodyAfterDelete);
   }
 
   @Test
-  void subscribePost_unsubscribeStopsFurtherEvents() {
-    val created =
-        postsStub
-            .createPost(CreatePostRequest.newBuilder().setBody("watch-close").build())
-            .getPost();
+  void subscribePost_unsubscribeStopsFurtherEvents() throws Exception {
+    val created = fixture.api().createPost("watch-close");
     val subscriptionId = UUID.randomUUID().toString();
 
-    fixture.subscribe(
-        Subscription.newBuilder()
-            .setSubscriptionId(subscriptionId)
-            .setPost(SubscribePostRequest.newBuilder().setPostId(created.getPostId()).build())
-            .build());
+    fixture.subscribe(SubscribeCommand.post(subscriptionId, created.postId()));
 
     assertEquals(
-        List.of(
-            Event.newBuilder()
-                .setSubscriptionId(subscriptionId)
-                .setPost(SubscribePostResponse.newBuilder().setPost(created).build())
-                .build()),
-        fixture.drainEventBusEvents());
+        List.of(EventBusServerMessage.post(subscriptionId, created)),
+        fixture.awaitAndDrainEventBusEvents(1));
 
     fixture.unsubscribe(subscriptionId);
-    postsStub.editPost(
-        EditPostRequest.newBuilder().setPostId(created.getPostId()).setBody("after-close").build());
+    fixture.assertNoEventBusEventsWithin(SETTLE_MILLIS);
+    fixture.api().editPost(created.postId(), "after-close");
 
-    assertEquals(List.of(), fixture.drainEventBusEvents());
+    fixture.assertNoEventBusEventsWithin(SETTLE_MILLIS);
   }
 }

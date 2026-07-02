@@ -13,8 +13,8 @@ public class PostFeature implements InstallableFeature {
     cluster.launchModule(new PostsModule(), new LaunchConfig(1, 1));
     val postsDepot = cluster.clusterDepot(PostsModule.NAME, PostsModule.POSTS_DEPOT);
     val postsPState = cluster.clusterPState(PostsModule.NAME, PostsModule.POSTS_PSTATE);
+    val postController = new PostController(postsDepot, postsPState);
     return new InstalledFeature(
-        List.of(new PostService(postsDepot, postsPState)),
-        List.of(new PostSubscription(postsPState)));
+        List.of(postController::registerRoutes), List.of(new PostSubscription(postsPState)));
   }
 }

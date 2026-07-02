@@ -1,10 +1,10 @@
 package social.example.eventbus;
 
-import social.example.eventbus.grpc.Subscription;
+import social.example.api.SubscribeCommand;
 
 public interface EventBusSubscription {
 
-  Subscription.RequestCase subscriptionCase();
+  SubscriptionCase subscriptionCase();
 
-  AutoCloseable subscribe(EventBusSession session, Subscription subscription);
+  AutoCloseable subscribe(EventBusSession session, SubscribeCommand command);
 }

@@ -1,8 +1,8 @@
 package social.example.eventbus;
 
-import social.example.eventbus.grpc.Event;
+import social.example.api.EventBusServerMessage;
 
 public interface EventBusSession {
 
-  void emit(Event event);
+  void emit(EventBusServerMessage event);
 }

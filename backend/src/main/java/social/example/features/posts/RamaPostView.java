@@ -1,7 +1,7 @@
 package social.example.features.posts;
 
 import com.rpl.rama.RamaSerializable;
-import social.example.features.posts.grpc.Post;
+import social.example.api.Post;
 
 public record RamaPostView(String postId, String body, long postedAtMillis)
     implements RamaSerializable {
@@ -10,11 +10,7 @@ public record RamaPostView(String postId, String body, long postedAtMillis)
     return new RamaPostView(event.postId(), event.body(), event.postedAtMillis());
   }
 
-  public Post toProto() {
-    return Post.newBuilder()
-        .setPostId(postId)
-        .setBody(body)
-        .setPostedAtMillis(postedAtMillis)
-        .build();
+  public Post toApi() {
+    return new Post(postId, body, postedAtMillis);
   }
 }

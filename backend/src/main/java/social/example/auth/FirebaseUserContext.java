@@ -1,31 +1,32 @@
 package social.example.auth;
 
-import com.google.firebase.auth.FirebaseToken;
-import io.grpc.Context;
-import io.grpc.Status;
-import lombok.val;
+import io.javalin.http.Context;
+import io.javalin.websocket.WsContext;
+import social.example.api.ApiException;
 
 public final class FirebaseUserContext {
-  public static final Context.Key<FirebaseToken> CONTEXT_KEY = Context.key("firebase-token");
+  private static final String ATTRIBUTE_KEY = "firebase-user-id";
 
   private FirebaseUserContext() {}
 
-  public static Context attachToContext(final FirebaseToken firebaseToken) {
-    return Context.current().withValue(CONTEXT_KEY, firebaseToken);
+  public static void attach(final Context ctx, final String userId) {
+    ctx.attribute(ATTRIBUTE_KEY, userId);
   }
 
-  public static String requireUserId() {
-    val firebaseToken = CONTEXT_KEY.get();
-    if (firebaseToken == null) {
-      throw Status.UNAUTHENTICATED
-          .withDescription("missing authenticated firebase user")
-          .asRuntimeException();
+  public static String requireUserId(final Context ctx) {
+    return requireUserId((String) ctx.attribute(ATTRIBUTE_KEY));
+  }
+
+  public static String requireUserId(final WsContext ctx) {
+    return requireUserId((String) ctx.attribute(ATTRIBUTE_KEY));
+  }
+
+  private static String requireUserId(final String userId) {
+    if (userId == null) {
+      throw ApiException.unauthenticated("missing authenticated firebase user");
     }
-    val userId = firebaseToken.getUid();
     if (userId.isBlank()) {
-      throw Status.UNAUTHENTICATED
-          .withDescription("authenticated firebase user id is blank")
-          .asRuntimeException();
+      throw ApiException.unauthenticated("authenticated firebase user id is blank");
     }
     return userId;
   }
