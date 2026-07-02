@@ -101,6 +101,7 @@ val exportOpenApi by tasks.registering {
         @Suppress("UNCHECKED_CAST")
         val spec = groovy.json.JsonSlurper().parse(specFile) as MutableMap<String, Any?>
         spec["info"] = mapOf("title" to "Social Example API", "version" to specVersion)
+        spec["servers"] = listOf(mapOf("url" to "http://localhost:8080"))
         @Suppress("UNCHECKED_CAST")
         val components =
             spec.getOrPut("components") { mutableMapOf<String, Any?>() } as MutableMap<String, Any?>

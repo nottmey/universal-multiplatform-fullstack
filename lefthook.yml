@@ -51,12 +51,13 @@ pre-commit:
     gitleaks:
       run: gitleaks protect --staged --no-banner
 
-    generate-dart-protos:
+    generate-api-client:
       glob:
-        - "backend/src/main/proto/**/*.proto"
+        - "backend/src/main/java/**/*.java"
+        - "backend/build.gradle.kts"
       run: |
-        ./scripts/generate_dart_protos.sh
-        git add frontend/lib/proto/
+        ./scripts/generate_api_client.sh
+        git add spec/openapi.json client/
 
     flutter-pub-get-precache-ios-pod-install:
       glob:
@@ -70,8 +71,6 @@ pre-commit:
       glob:
         - "frontend/**/*.dart"
         - "frontend/pubspec.lock"
-      exclude:
-        - "frontend/lib/proto/**"
       run: |
         (cd frontend && dart run build_runner build)
         find frontend \( -name '*.mocks.dart' -o -name '*.g.dart' \) -exec git add {} +
@@ -93,6 +92,7 @@ pre-push:
   commands:
     dart-analyze:
       glob:
+        - "client/**/*.dart"
         - "frontend/analysis_options.yaml"
         - "frontend/**/*.dart"
         - "frontend/pubspec.lock"
@@ -100,6 +100,7 @@ pre-push:
 
     flutter-test:
       glob:
+        - "client/**/*.dart"
         - "frontend/lib/**/*.dart"
         - "frontend/test/**/*.dart"
         - "frontend/pubspec.lock"
@@ -120,8 +121,10 @@ pre-push:
         - "backend/gradle/libs.versions.toml"
         - "backend/settings.gradle.kts"
         - "backend/src/main/java/**"
+        - "client/**/*.dart"
         - "frontend/lib/**/*.dart"
         - "frontend/patrol_test/**"
         - "frontend/pubspec.lock"
         - "scripts/patrol_e2e.sh"
+        - "spec/openapi.json"
       run: ./scripts/patrol_e2e.sh web-headless
