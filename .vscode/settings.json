@@ -59,6 +59,7 @@
         "inprocess",
         "invokable",
         "jacoco",
+        "Javalin",
         "javax",
         "jdneo",
         "lefthook",
