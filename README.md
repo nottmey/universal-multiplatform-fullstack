@@ -115,19 +115,19 @@ The sample app is a minimal **global timeline** (shared feed, chronological post
 ./setup.sh
 ```
 
-6. Run the auth emulator:
+7. Run the auth emulator:
 
 ```bash
 cd frontend && firebase emulators:start --only auth
 ```
 
-7. Run the backend:
+8. Run the backend:
 
 ```bash
 cd backend && ./gradlew runBackend
 ```
 
-7. Run the frontend:
+9. Run the frontend:
 
 ```bash
 cd frontend && flutter run -d chrome
