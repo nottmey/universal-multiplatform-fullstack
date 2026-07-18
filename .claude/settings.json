@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "(cd frontend && flutter pub get)",
+            "statusMessage": "Running flutter pub get..."
+          },
+          {
+            "type": "command",
+            "command": "(cd backend && ./gradlew classes --console=plain)",
+            "statusMessage": "Compiling backend classes..."
+          }
+        ]
+      }
+    ]
+  }
+}
