@@ -4,3 +4,6 @@
 .packages
 # Typically libraries do not check in pubspec.lock, only applications.
 pubspec.lock
+
+# Build artifacts (e.g. from `flutter test`)
+/build/
