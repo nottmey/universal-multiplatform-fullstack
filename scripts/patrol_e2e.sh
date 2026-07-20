@@ -39,14 +39,25 @@ require_command() {
   fi
 }
 
+# patrol_cli releases lag behind the `patrol` package (see
+# https://patrol.leancode.co/documentation/compatibility-table): the `patrol`
+# version pinned in frontend/pubspec.yaml (4.6.0) requires patrol_cli 4.4.0,
+# not the latest patrol_cli release. Keep this in sync with that table when
+# bumping the `patrol` dependency.
+readonly patrol_cli_version=4.4.0
+
 require_patrol() {
-  if [[ ! -x "$patrol_bin" ]]; then
-    echo "$self: activating patrol_cli (patrol CLI missing)" >&2
-    dart pub global activate patrol_cli
+  local installed_version=""
+  if [[ -x "$patrol_bin" ]]; then
+    installed_version=$("$patrol_bin" --version 2>/dev/null | grep -oE 'patrol_cli v[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+  fi
+  if [[ "$installed_version" != "$patrol_cli_version" ]]; then
+    echo "$self: activating patrol_cli $patrol_cli_version (found: ${installed_version:-none})" >&2
+    dart pub global activate patrol_cli "$patrol_cli_version"
   fi
   if [[ ! -x "$patrol_bin" ]]; then
     echo "$self: patrol still missing at $patrol_bin after activate" >&2
-    echo "$self: run: dart pub global activate patrol_cli" >&2
+    echo "$self: run: dart pub global activate patrol_cli $patrol_cli_version" >&2
     exit 1
   fi
 }
@@ -80,8 +91,11 @@ cleanup() {
 trap cleanup EXIT
 
 case "$device" in
-  web) patrol_device=(--device chrome) ;;
-  web-headless) patrol_device=(--device chrome --web-headless true) ;;
+  # --web-locale pins the browser locale Patrol's Playwright harness launches
+  # with. Without it, the harness falls back to whatever locale the host
+  # exposes, which can be a format the app's Intl setup rejects outright.
+  web) patrol_device=(--device chrome --web-locale en-US) ;;
+  web-headless) patrol_device=(--device chrome --web-headless true --web-locale en-US) ;;
   *) patrol_device=(--device "$device") ;;
 esac
 
